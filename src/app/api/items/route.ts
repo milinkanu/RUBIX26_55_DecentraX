@@ -10,20 +10,39 @@ export async function GET(req: NextRequest) {
         const city = searchParams.get("city");
         const area = searchParams.get("area");
         const type = searchParams.get("type");
+        const search = searchParams.get("search");
 
-        console.log("Filters received:", { category, city, area, type });
+        console.log("Filters received:", { category, city, area, type, search });
 
         let query: any = {};
+
+        if (search) {
+            const searchRegex = new RegExp(search.trim(), "i");
+            query.$or = [
+                { title: searchRegex },
+                { description: searchRegex }
+            ];
+        }
 
         if (type) {
             const trimmedType = type.trim();
             // Handle case where type might be missing (defaults to "Found" in UI)
             if (trimmedType.toLowerCase() === 'found') {
-                query.$or = [
+                const typeQuery = [
                     { type: new RegExp(trimmedType, "i") },
                     { type: { $exists: false } }, // Legacy data support
                     { type: null }
                 ];
+
+                if (query.$or) {
+                    query.$and = [
+                        { $or: query.$or },
+                        { $or: typeQuery }
+                    ];
+                    delete query.$or;
+                } else {
+                    query.$or = typeQuery;
+                }
             } else {
                 query.type = new RegExp(trimmedType, "i");
             }

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Search, X, User, Phone, Mail, Paperclip } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
 import { Navbar } from "./Navbar";
 import { ToastContainer, toast } from "react-toastify";
@@ -35,6 +36,9 @@ interface Claim {
 }
 
 export function FindItem() {
+    const searchParams = useSearchParams();
+    const search = searchParams.get("search");
+
     const [items, setItems] = useState<Item[]>([]);
     const [loading, setLoading] = useState(false);
     const [filters, setFilters] = useState({
@@ -60,6 +64,7 @@ export function FindItem() {
             if (filters.category) params.append("category", filters.category);
             if (filters.city) params.append("city", filters.city);
             if (filters.area) params.append("area", filters.area);
+            if (search) params.append("search", search);
 
             const res = await axios.get(`${API_URL}/api/items?${params.toString()}`);
             setItems(res.data);
@@ -71,10 +76,10 @@ export function FindItem() {
         }
     };
 
-    // Initial fetch
+    // Initial fetch and refetch on search change
     useEffect(() => {
         fetchItems();
-    }, []);
+    }, [search]); // Added search dependency
 
     const handleApplyFilters = () => {
         fetchItems();
