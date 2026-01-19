@@ -5,16 +5,17 @@ import Message from "@/models/Message";
 export async function POST(req: NextRequest) {
     await connectDB();
     try {
-        const { claimId, senderEmail, content } = await req.json();
+        const { claimId, senderEmail, content, imageUrl } = await req.json();
 
-        if (!claimId || !senderEmail || !content) {
+        if (!claimId || !senderEmail || (!content && !imageUrl)) {
             return NextResponse.json({ message: "Missing fields" }, { status: 400 });
         }
 
         const newMessage = new Message({
             claimId,
             senderEmail,
-            content,
+            content: content || "",
+            imageUrl,
         });
 
         await newMessage.save();

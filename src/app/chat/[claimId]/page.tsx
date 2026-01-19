@@ -3,13 +3,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { useParams, useRouter } from "next/navigation";
-import { Send, User as UserIcon, MapPin, ArrowLeft, Search, Paperclip, MoreVertical, Phone, AlertTriangle } from "lucide-react";
+import { Send, User as UserIcon, ArrowLeft, Search, Paperclip, MoreVertical, AlertTriangle } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link"; // Added missing import
 
 interface Message {
     _id: string;
     senderEmail: string;
     content: string;
+    imageUrl?: string;
     createdAt: string;
     isRead: boolean;
 }
@@ -26,6 +28,7 @@ interface ChatListItem {
     claimantEmail: string;
     lastMessage?: {
         content: string;
+        imageUrl?: string;
         createdAt: string;
     };
     unreadCount: number;
@@ -46,17 +49,20 @@ export default function ChatPage() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [chats, setChats] = useState<ChatListItem[]>(globalChatsCache);
     const [newMessage, setNewMessage] = useState("");
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [uploading, setUploading] = useState(false);
+
     const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
     const [currentChat, setCurrentChat] = useState<ChatListItem | null>(null);
     const [searchChat, setSearchChat] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const claimIdRef = useRef(claimId);
     claimIdRef.current = claimId; // Update synchronously on every render
 
     useEffect(() => {
-        // Reset state when switch chatsimId;
-
         // Mark current chat as read globally
         if (typeof claimId === 'string') {
             globalReadClaims.add(claimId);
@@ -78,6 +84,10 @@ export default function ChatPage() {
             setChats(updatedChats);
             globalChatsCache = updatedChats; // Update cache
         }
+
+        // Cleanup image state on chat switch
+        setImageFile(null);
+        setPreviewUrl(null);
     }, [claimId]);
 
     useEffect(() => {
@@ -97,8 +107,6 @@ export default function ChatPage() {
 
     useEffect(() => {
         if (claimId && currentUserEmail) {
-            // We don't need to find active chat here if we trust the URL
-            // But updating currentChat is good for the header info
             const active = chats.find(c => c._id === claimId);
             if (active) setCurrentChat(active);
 
@@ -129,10 +137,6 @@ export default function ChatPage() {
     const fetchChatList = async (email: string) => {
         try {
             const res = await axios.get(`/api/chat/list/${email}`);
-
-            // Sanitize unread counts:
-            // Only force 0 if it is the CURRENTLY OPEN chat.
-            // We trust the backend (ChatReadState) for everything else.
             const sanitizedChats = res.data.map((chat: ChatListItem) => {
                 if (chat._id === claimIdRef.current) {
                     return { ...chat, unreadCount: 0 };
@@ -141,9 +145,7 @@ export default function ChatPage() {
             });
 
             setChats(sanitizedChats);
-            globalChatsCache = sanitizedChats; // Keep global cache fresh
-
-            // Notify Navbar to update its badge
+            globalChatsCache = sanitizedChats;
             window.dispatchEvent(new Event('chat-read'));
         } catch (err) {
             console.error("Error fetching chat list:", err);
@@ -152,9 +154,7 @@ export default function ChatPage() {
 
     const fetchMessages = async () => {
         try {
-            // Pass email to get smart metadata (lastReadAt)
             const res = await axios.get(`/api/chat/${claimId}?email=${currentUserEmail}`);
-
             let fetchedMessages: Message[] = [];
             let lastReadAt: string | null = null;
 
@@ -165,13 +165,11 @@ export default function ChatPage() {
                 lastReadAt = res.data.lastReadAt;
             }
 
-            // Logic to determine unread divider position (run only once per chat view)
             if (!initialFetchDone.current && currentUserEmail) {
                 let firstUnread;
                 let count = 0;
 
                 if (lastReadAt) {
-                    // Pro Logic: Use Timestamp
                     const lastReadDate = new Date(lastReadAt);
                     firstUnread = fetchedMessages.find(m =>
                         m.senderEmail !== currentUserEmail &&
@@ -182,7 +180,6 @@ export default function ChatPage() {
                         new Date(m.createdAt) > lastReadDate
                     ).length;
                 } else {
-                    // Legacy Fallback
                     firstUnread = fetchedMessages.find(m => m.senderEmail !== currentUserEmail && !m.isRead);
                     count = fetchedMessages.filter(m => m.senderEmail !== currentUserEmail && !m.isRead).length;
                 }
@@ -192,20 +189,13 @@ export default function ChatPage() {
                     setUnreadSessionCount(count);
                 }
 
-                // Set initial fetch done to true 
                 initialFetchDone.current = true;
-
-                // Scroll to bottom after initial load
                 setTimeout(scrollToBottom, 100);
-
-                // Auto-hide the "Unread Messages" divider after 2 seconds to reduce clutter
                 setTimeout(() => {
                     setUnreadDividerId(null);
                 }, 2000);
             }
 
-            // Always attempt to seek/confirm 'read' status on every fetch
-            // This acts as a self-healing mechanism if the Initial call failed
             if (currentUserEmail) {
                 markMessagesRead();
             }
@@ -230,8 +220,6 @@ export default function ChatPage() {
                 claimId,
                 userEmail: currentUserEmail
             });
-
-            // Sync UI immediately after marking read
             fetchChatList(currentUserEmail);
             window.dispatchEvent(new Event('chat-read'));
         } catch (err) {
@@ -239,17 +227,51 @@ export default function ChatPage() {
         }
     };
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 5 * 1024 * 1024) { // 5MB limit
+                alert("File is too large (max 5MB)");
+                return;
+            }
+            setImageFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setPreviewUrl(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newMessage.trim() || !currentUserEmail) return;
+        if ((!newMessage.trim() && !imageFile) || !currentUserEmail) return;
 
+        setUploading(true);
         try {
+            let imageUrl = "";
+            if (imageFile) {
+                const data = new FormData();
+                data.append("file", imageFile);
+                data.append("upload_preset", "First_time_using_cloudinary");
+
+                const cloudinaryRes = await axios.post(
+                    "https://api.cloudinary.com/v1_1/dscllest7/image/upload",
+                    data
+                );
+                imageUrl = cloudinaryRes.data.secure_url;
+            }
+
             await axios.post("/api/chat/send", {
                 claimId,
                 senderEmail: currentUserEmail,
                 content: newMessage,
+                imageUrl,
             });
+
             setNewMessage("");
+            setImageFile(null);
+            setPreviewUrl(null);
 
             // Fetch immediately to show the new message
             const res = await axios.get(`/api/chat/${claimId}`);
@@ -259,21 +281,22 @@ export default function ChatPage() {
             setTimeout(scrollToBottom, 100);
 
             fetchChatList(currentUserEmail); // Update list preview
-        } catch (err) {
-            console.error("Error sending message:", err);
+        } catch (err: any) {
+            console.error("Error sending message:", err.response?.data || err.message);
+            alert("Failed to send message: " + (err.response?.data?.message || err.message));
+        } finally {
+            setUploading(false);
         }
     };
 
     const filteredChats = chats.filter(chat => {
-        const name = currentUserEmail === chat.finderEmail ? chat.claimantName : "Finder"; // Simplification
+        const name = currentUserEmail === chat.finderEmail ? chat.claimantName : "Finder";
         const title = chat.itemId?.title || "";
         return name.toLowerCase().includes(searchChat.toLowerCase()) || title.toLowerCase().includes(searchChat.toLowerCase());
     });
 
-    // Calculate total unread count excluding the currently active chat
-    // This gives instant feedback to the user
     const totalUnreadCount = chats.reduce((acc, chat) => {
-        if (chat._id === claimId) return acc; // Don't count active chat
+        if (chat._id === claimId) return acc;
         return acc + (chat.unreadCount || 0);
     }, 0);
 
@@ -326,8 +349,6 @@ export default function ChatPage() {
                         const isFinder = currentUserEmail === chat.finderEmail;
                         const otherName = isFinder ? chat.claimantName : "Finder";
                         const isActive = chat._id === claimId;
-
-                        // Optimistically hide unread badge if this is the active chat
                         const displayUnreadCount = isActive ? 0 : chat.unreadCount;
 
                         return (
@@ -356,7 +377,7 @@ export default function ChatPage() {
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <p className="text-gray-500 text-sm truncate pr-2">
-                                            {chat.lastMessage?.content || "No messages yet"}
+                                            {chat.lastMessage?.content || (chat.lastMessage?.imageUrl ? "Photo" : "No messages yet")}
                                         </p>
                                         {displayUnreadCount > 0 && (
                                             <span className="bg-yellow-400 text-black text-xs font-bold px-1.5 h-5 min-w-[20px] rounded-full flex items-center justify-center">
@@ -430,7 +451,20 @@ export default function ChatPage() {
                                         <div className={`max-w-[75%] md:max-w-[60%] px-4 py-2.5 rounded-2xl text-sm shadow-md relative group ${isMe ? 'bg-yellow-400 text-black rounded-tr-none font-medium' : 'bg-neutral-800 text-gray-100 rounded-tl-none border border-white/5'
                                             }`}>
                                             <div className="flex flex-col">
-                                                <span className="leading-relaxed">{msg.content}</span>
+                                                {msg.imageUrl && (
+                                                    <div className="mb-2 rounded-lg overflow-hidden border border-black/10">
+                                                        <Link href={msg.imageUrl} target="_blank">
+                                                            <Image
+                                                                src={msg.imageUrl}
+                                                                alt="Attachment"
+                                                                width={300}
+                                                                height={200}
+                                                                className="w-full h-auto object-cover hover:scale-105 transition-transform duration-300"
+                                                            />
+                                                        </Link>
+                                                    </div>
+                                                )}
+                                                {msg.content && <span className="leading-relaxed">{msg.content}</span>}
                                                 <div className="flex items-center justify-end gap-1 mt-1 select-none opacity-70">
                                                     <span className={`text-[10px] uppercase font-bold tracking-wider`}>
                                                         {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -446,26 +480,62 @@ export default function ChatPage() {
                     </div>
 
                     {/* Input Area */}
-                    <div className="bg-neutral-900 px-4 py-4 flex items-end gap-3 z-10 border-t border-white/10">
-                        <button className="text-gray-400 p-2 hover:bg-neutral-800 rounded-full transition mb-0.5">
-                            <Paperclip size={22} />
-                        </button>
-                        <form onSubmit={handleSendMessage} className="flex-1 flex items-end gap-3 bg-neutral-800 rounded-xl px-4 py-2 border border-white/5 focus-within:border-yellow-400/50 transition-colors">
+                    <div className="bg-neutral-900 z-10 border-t border-white/10 relative">
+                        {/* Image Preview */}
+                        {previewUrl && (
+                            <div className="absolute bottom-full left-0 w-full bg-neutral-900 border-t border-white/10 p-3 flex items-start gap-4 animate-in slide-in-from-bottom-5">
+                                <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-white/20 group">
+                                    <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                                    <button
+                                        onClick={() => { setImageFile(null); setPreviewUrl(null); }}
+                                        className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-white"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-xs text-yellow-400 font-bold mb-0.5">Image Selected</p>
+                                    <p className="text-xs text-gray-400 truncate">{imageFile?.name}</p>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="px-4 py-4 flex items-center gap-3">
                             <input
-                                type="text"
-                                value={newMessage}
-                                onChange={(e) => setNewMessage(e.target.value)}
-                                placeholder="Type a message..."
-                                className="w-full bg-transparent text-white focus:outline-none placeholder-gray-500 min-h-[24px] max-h-32 py-1"
+                                type="file"
+                                ref={fileInputRef}
+                                className="hidden"
+                                accept="image/*"
+                                onChange={handleFileChange}
                             />
                             <button
-                                type="submit"
-                                disabled={!newMessage.trim()}
-                                className="text-gray-400 hover:text-yellow-400 transition disabled:opacity-30 disabled:hover:text-gray-400"
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className={`p-2 rounded-full transition ${imageFile ? 'text-yellow-400 bg-yellow-400/10' : 'text-gray-400 hover:bg-neutral-800'}`}
                             >
-                                <Send size={20} className={newMessage.trim() ? "text-yellow-400" : ""} />
+                                <Paperclip size={22} />
                             </button>
-                        </form>
+                            <form onSubmit={handleSendMessage} className="flex-1 flex items-center gap-3 bg-neutral-800 rounded-xl px-4 py-2 border border-white/5 focus-within:border-yellow-400/50 transition-colors">
+                                <input
+                                    type="text"
+                                    value={newMessage}
+                                    onChange={(e) => setNewMessage(e.target.value)}
+                                    placeholder={imageFile ? "Add a caption..." : "Type a message..."}
+                                    className="w-full bg-transparent text-white focus:outline-none placeholder-gray-500 min-h-[24px] max-h-32 py-1"
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={(!newMessage.trim() && !imageFile) || uploading}
+                                    className="text-gray-400 hover:text-yellow-400 transition disabled:opacity-30 disabled:hover:text-gray-400"
+                                >
+                                    {uploading ? (
+                                        <div className="w-5 h-5 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
+                                    ) : (
+                                        <Send size={20} className={(newMessage.trim() || imageFile) ? "text-yellow-400" : ""} />
+                                    )}
+                                </button>
+                            </form>
+                        </div>
                     </div>
                 </div>
             ) : (
@@ -495,8 +565,7 @@ export default function ChatPage() {
                         Back to Dashboard
                     </button>
                 </div>
-            )
-            }
-        </div >
+            )}
+        </div>
     );
 }

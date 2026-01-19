@@ -15,12 +15,46 @@ export async function GET(req: NextRequest, props: { params: Promise<{ email: st
 
         const claims = await Claim.find({
             $or: [
-                { finderEmail: email, status: { $in: ["pending", "approved"] } },
-                { claimantEmail: email, status: "approved" }
-            ]
-        }).populate("itemId").sort({ updatedAt: -1 });
+                { finderEmail: { $regex: new RegExp(`^${email}$`, 'i') } },
+                { claimantEmail: { $regex: new RegExp(`^${email}$`, 'i') } }
+            ],
+            status: { $in: ['pending', 'approved'] }
+        })
+            .populate({
+                path: "itemId",
+                select: "title type file"
+            })
+            .sort({ updatedAt: -1 });
 
-        return NextResponse.json(claims);
+        const filteredClaims = claims.filter(claim => {
+            if (!claim.itemId) return false; // Sanity check
+            if (claim.status === 'approved') return true;
+
+            const isLostItem = (claim.itemId as any).type === 'Lost';
+            // Determine my role in this specific claim
+            // Note: DB emails might be mixed case, assuming normalized or checking both
+            const amIFinder = claim.finderEmail.toLowerCase() === email.toLowerCase();
+            const amIClaimant = claim.claimantEmail.toLowerCase() === email.toLowerCase();
+
+            // LOGIC:
+            // 1. Found Item (Type != Lost):
+            //    - Finder (Poster) needs to see it (Incoming Claim). -> SHOW
+            //    - Claimant (Requester) should NOT see it as a "Notification" (Outgoing). -> HIDE
+            if (!isLostItem) {
+                return amIFinder;
+            }
+
+            // 2. Lost Item (Type == Lost):
+            //    - Finder (Reporter) should NOT see it (Outgoing Report). -> HIDE
+            //    - Claimant (Owner/Poster) needs to see it (Incoming Report). -> SHOW
+            if (isLostItem) {
+                return amIClaimant;
+            }
+
+            return false;
+        });
+
+        return NextResponse.json(filteredClaims);
     } catch (error: any) {
         return NextResponse.json({ message: "Error fetching notifications", error: error.message }, { status: 500 });
     }
