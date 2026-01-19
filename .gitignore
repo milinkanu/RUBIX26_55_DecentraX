@@ -1,0 +1,29 @@
+# Node modules (if you're using Node.js)
+node_modules/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Build directories
+dist/
+build/
+
+# IDE or editor specific files (VSCode in this case)
+.vscode/
+
+# Ignore environment files (if applicable)
+.env
+.env.local
+.env.*.local
+
+# Package manager files (if relevant)
+package-lock.json
+yarn.lock
+
+# Server build outputs (if any, for example)
+server/build/
+
+# Client build outputs (if any, for example)
+client/build/
