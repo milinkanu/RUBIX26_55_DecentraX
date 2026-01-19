@@ -26,4 +26,10 @@ yarn.lock
 server/build/
 
 # Client build outputs (if any, for example)
-client/build/
+# Next.js
+.next/
+out/
+
+# Production
+build/
+
