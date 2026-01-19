@@ -17,6 +17,7 @@ interface Item {
     type: string;
     file: string;
     name: string;
+    email?: string;
     verify: string;
     location: {
         city: string;
@@ -397,46 +398,66 @@ export function FindItem() {
                                 </div>
 
                                 {/* Actions */}
-                                {!claim?.submitted && (
-                                    <button
-                                        onClick={() => setShowClaimForm(true)}
-                                        className="w-full mt-4 bg-yellow-400 text-black py-2 rounded font-semibold hover:bg-yellow-500 transition"
-                                    >
-                                        {selectedItem.type === 'Found' ? "This is my item" : "I found this item"}
-                                    </button>
-                                )}
+                                {(() => {
+                                    const storedUser = localStorage.getItem("user");
+                                    const user = storedUser ? JSON.parse(storedUser) : null;
+                                    const isOwner = user?.email === selectedItem.email;
 
-                                {showClaimForm && !claim?.submitted && (
-                                    <div className="mt-4 space-y-2 bg-white/5 p-4 rounded-lg">
-                                        {selectedItem.type === 'Found' ? (
-                                            <>
-                                                <p className="text-gray-300 text-sm">
-                                                    Verification Question:{" "}
-                                                    <span className="font-semibold text-white">
-                                                        {selectedItem.verify}
-                                                    </span>
+                                    if (isOwner) {
+                                        return (
+                                            <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded text-center">
+                                                <p className="text-blue-400 font-semibold">
+                                                    You uploaded this {selectedItem.type?.toLowerCase() || "found"} item
                                                 </p>
-                                                <input
-                                                    value={answer}
-                                                    onChange={(e) => setAnswer(e.target.value)}
-                                                    className="w-full p-2 bg-gray-900 border border-gray-700 rounded text-white focus:border-yellow-400 focus:outline-none"
-                                                    placeholder="Your answer..."
-                                                />
-                                            </>
-                                        ) : (
-                                            <p className="text-gray-300 text-sm">
-                                                Notify the owner that you found their item. They will receive your contact details.
-                                            </p>
-                                        )}
+                                            </div>
+                                        );
+                                    }
 
-                                        <button
-                                            onClick={handleSubmitAnswer}
-                                            className="w-full bg-yellow-400 text-black py-2 rounded font-semibold hover:bg-yellow-500 transition"
-                                        >
-                                            {selectedItem.type === 'Found' ? "Submit Answer" : "Send Contact Info"}
-                                        </button>
-                                    </div>
-                                )}
+                                    return (
+                                        <>
+                                            {!claim?.submitted && (
+                                                <button
+                                                    onClick={() => setShowClaimForm(true)}
+                                                    className="w-full mt-4 bg-yellow-400 text-black py-2 rounded font-semibold hover:bg-yellow-500 transition"
+                                                >
+                                                    {selectedItem.type === 'Found' ? "This is my item" : "I found this item"}
+                                                </button>
+                                            )}
+
+                                            {showClaimForm && !claim?.submitted && (
+                                                <div className="mt-4 space-y-2 bg-white/5 p-4 rounded-lg">
+                                                    {selectedItem.type === 'Found' ? (
+                                                        <>
+                                                            <p className="text-gray-300 text-sm">
+                                                                Verification Question:{" "}
+                                                                <span className="font-semibold text-white">
+                                                                    {selectedItem.verify}
+                                                                </span>
+                                                            </p>
+                                                            <input
+                                                                value={answer}
+                                                                onChange={(e) => setAnswer(e.target.value)}
+                                                                className="w-full p-2 bg-gray-900 border border-gray-700 rounded text-white focus:border-yellow-400 focus:outline-none"
+                                                                placeholder="Your answer..."
+                                                            />
+                                                        </>
+                                                    ) : (
+                                                        <p className="text-gray-300 text-sm">
+                                                            Notify the owner that you found their item. They will receive your contact details.
+                                                        </p>
+                                                    )}
+
+                                                    <button
+                                                        onClick={handleSubmitAnswer}
+                                                        className="w-full bg-yellow-400 text-black py-2 rounded font-semibold hover:bg-yellow-500 transition"
+                                                    >
+                                                        {selectedItem.type === 'Found' ? "Submit Answer" : "Send Contact Info"}
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </>
+                                    );
+                                })()}
 
                                 {claim?.submitted && !claim?.approved && (
                                     <div className="mt-4 p-3 bg-yellow-400/10 border border-yellow-400/20 rounded text-center">
