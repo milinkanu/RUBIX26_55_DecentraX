@@ -68,12 +68,24 @@ export async function GET(req: NextRequest) {
     }
 }
 
+import { findMatchesAndNotify } from "@/lib/matchingService";
+
 export async function POST(req: NextRequest) {
     await connectDB();
     try {
         const body = await req.json();
         const newItem = new Item(body);
         await newItem.save();
+
+        // Trigger matching asynchronously (don't block response)
+        // Note: In Vercel serverless, this might be cut off if not awaited. 
+        // Ideally use a queue or await it. Since it's simple logic, we await it for safety.
+        try {
+            await findMatchesAndNotify(newItem);
+        } catch (matchErr) {
+            console.error("Matching service error:", matchErr);
+        }
+
         return NextResponse.json({ success: true, item: newItem }, { status: 201 });
     } catch (err: any) {
         return NextResponse.json({ success: false, message: err.message }, { status: 500 });
