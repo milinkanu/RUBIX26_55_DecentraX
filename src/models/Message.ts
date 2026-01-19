@@ -4,6 +4,7 @@ export interface IMessage extends Document {
     claimId: mongoose.Types.ObjectId;
     senderEmail: string;
     content: string;
+    isRead: boolean;
     createdAt: Date;
 }
 
