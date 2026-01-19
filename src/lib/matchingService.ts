@@ -167,6 +167,7 @@ async function createNotification(recipientItem: IItem, matchedItem: IItem, scor
         title: `${scorePercentage}% Match Found!`,
         message: `We found a potential match for your ${recipientItem.category || "item"}. The item "${matchedItem.title}" matches ${scorePercentage}% of your criteria.`,
         relatedItem: matchedItem._id,
+        sourceItem: recipientItem._id,
         type: "MATCH_FOUND"
     });
     console.log(`[Matching] Notification created for user ${user._id} (${scorePercentage}%)`);

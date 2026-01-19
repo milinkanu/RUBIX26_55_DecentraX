@@ -9,6 +9,7 @@ export interface INotification extends Document {
     title: string;
     message: string;
     relatedItem: mongoose.Types.ObjectId;
+    sourceItem?: mongoose.Types.ObjectId; // The item reported by the user that triggered this match
     type: "MATCH_FOUND" | "CLAIM" | "SYSTEM";
     isRead: boolean;
     createdAt: Date;
@@ -25,6 +26,7 @@ const notificationSchema: Schema<INotification> = new Schema(
         title: { type: String, required: true },
         message: { type: String, required: true },
         relatedItem: { type: Schema.Types.ObjectId, ref: "Item" },
+        sourceItem: { type: Schema.Types.ObjectId, ref: "Item" },
         type: {
             type: String,
             enum: ["MATCH_FOUND", "CLAIM", "SYSTEM"],

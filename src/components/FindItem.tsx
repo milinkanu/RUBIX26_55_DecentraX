@@ -39,6 +39,7 @@ interface Claim {
 export function FindItem() {
     const searchParams = useSearchParams();
     const search = searchParams.get("search");
+    const itemId = searchParams.get("itemId");
 
     const [items, setItems] = useState<Item[]>([]);
     const [loading, setLoading] = useState(false);
@@ -82,6 +83,22 @@ export function FindItem() {
     useEffect(() => {
         fetchItems();
     }, [search]); // Added search dependency
+
+    // Handle selection from URL itemId
+    useEffect(() => {
+        if (itemId) {
+            const itemInList = items.find(i => i._id === itemId);
+            if (itemInList) {
+                setSelectedItem(itemInList);
+            } else {
+                axios.get(`${API_URL}/api/items/${itemId}`)
+                    .then(res => {
+                        if (res.data) setSelectedItem(res.data);
+                    })
+                    .catch(err => console.error("Error fetching specific item:", err));
+            }
+        }
+    }, [itemId, items]);
 
     const handleApplyFilters = () => {
         fetchItems();

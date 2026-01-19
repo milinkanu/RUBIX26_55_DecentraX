@@ -149,23 +149,15 @@ function NavbarContent() {
     }
   };
 
-  const markNotificationRead = async (id: string, itemId: string) => {
+  const markNotificationRead = async (id: string, itemId?: string, shouldNavigate: boolean = true) => {
     try {
       await axios.patch(`${API_URL}/api/notifications/${id}`);
       setMatchNotifications(prev => prev.filter(n => n._id !== id));
-      setShowDropdown(false);
-      // Optional: Navigate to item?
-      // Since relatedItem is populated, we can assume it exists.
-      // But the current page structure usually opens items in a modal (FindItem). 
-      // If we are on FindItem, we might want to trigger the modal.
-      // Or we can simple navigate to /find?item=ID if we implement that.
-      // For now, let's just assume we want to user to go to Find page.
-      // Ideally, FindItem page should support opening an item by ID from URL.
-      // Let's modify the router push to include query param if possible, or just go to /find.
-      // Actually, let's look at FindItem. It has selectedItem state. It doesn't seem to read from URL param yet.
-      // I'll just navigate to /find.
-      router.push("/find");
-      // A future improvement would be to open the modal automatically.
+
+      if (shouldNavigate && itemId) {
+        setShowDropdown(false);
+        router.push(`/find?itemId=${itemId}`);
+      }
     } catch (err) {
       console.error("Error marking notification read:", err);
     }
@@ -339,9 +331,18 @@ function NavbarContent() {
                           {matchNotifications.map((notif) => (
                             <div
                               key={notif._id}
-                              className="text-sm border-b border-white/10 pb-2 bg-white/5 rounded-md p-3 hover:bg-white/10 transition cursor-pointer group"
+                              className="text-sm border-b border-white/10 pb-2 bg-white/5 rounded-md p-3 hover:bg-white/10 transition cursor-pointer group relative"
                               onClick={() => notif.relatedItem && markNotificationRead(notif._id, notif.relatedItem._id)}
                             >
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  markNotificationRead(notif._id, undefined, false);
+                                }}
+                                className="absolute top-2 right-2 text-gray-500 hover:text-white transition-colors"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
                               <div className="flex items-start gap-3">
                                 <span className="text-xl group-hover:scale-110 transition-transform">🔍</span>
                                 <div>
@@ -359,8 +360,19 @@ function NavbarContent() {
                             return (
                               <div
                                 key={claim._id}
-                                className="text-sm border-b border-white/10 pb-2 bg-white/5 rounded-md p-3 hover:bg-white/10 transition"
+                                className="text-sm border-b border-white/10 pb-2 bg-white/5 rounded-md p-3 hover:bg-white/10 transition relative"
                               >
+                                {claim.status === 'pending' && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleClaimAction(claim._id, "rejected");
+                                    }}
+                                    className="absolute top-2 right-2 text-gray-500 hover:text-red-400 transition-colors"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                )}
                                 <div className="flex justify-between items-start">
                                   <div>
                                     <p className="font-semibold text-yellow-400 mb-1">

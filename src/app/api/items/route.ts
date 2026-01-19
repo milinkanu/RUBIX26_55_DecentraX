@@ -11,10 +11,15 @@ export async function GET(req: NextRequest) {
         const area = searchParams.get("area");
         const type = searchParams.get("type");
         const search = searchParams.get("search");
+        const email = searchParams.get("email");
 
-        console.log("Filters received:", { category, city, area, type, search });
+        console.log("Filters received:", { category, city, area, type, search, email });
 
         let query: any = {};
+
+        if (email) {
+            query.email = email.trim();
+        }
 
         if (search) {
             const searchRegex = new RegExp(search.trim(), "i");
