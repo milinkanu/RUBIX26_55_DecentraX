@@ -5,6 +5,7 @@ import { Search, X, User, Phone, Mail, Paperclip, Filter } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
 import { Navbar } from "./Navbar";
+import { CustomDropdown } from "./CustomDropdown";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -204,34 +205,28 @@ export function FindItem() {
                                         Filters
                                     </h2>
 
-                                    {/* Type */}
-                                    <div>
-                                        <label className="block text-sm text-gray-400 mb-2">Type</label>
-                                        <select
-                                            value={filters.type}
-                                            onChange={(e) => setFilters({ ...filters, type: e.target.value })}
-                                            className="w-full bg-black/50 border border-gray-600 rounded-lg p-3 text-white focus:border-yellow-400 focus:outline-none transition-colors"
-                                        >
-                                            <option value="">All Types</option>
-                                            <option value="Lost">Lost Items</option>
-                                            <option value="Found">Found Items</option>
-                                        </select>
-                                    </div>
+                                    <CustomDropdown
+                                        label="Type"
+                                        value={filters.type}
+                                        onChange={(val) => setFilters({ ...filters, type: val })}
+                                        options={[
+                                            { value: "", label: "All Types" },
+                                            { value: "Lost", label: "Lost Items" },
+                                            { value: "Found", label: "Found Items" },
+                                        ]}
+                                        placeholder="Select Type"
+                                    />
 
-                                    {/* Category */}
-                                    <div>
-                                        <label className="block text-sm text-gray-400 mb-2">Category</label>
-                                        <select
-                                            value={filters.category}
-                                            onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-                                            className="w-full bg-black/50 border border-gray-600 rounded-lg p-3 text-white focus:border-yellow-400 focus:outline-none transition-colors"
-                                        >
-                                            <option value="">All Categories</option>
-                                            {categories.map((cat) => (
-                                                <option key={cat} value={cat}>{cat}</option>
-                                            ))}
-                                        </select>
-                                    </div>
+                                    <CustomDropdown
+                                        label="Category"
+                                        value={filters.category}
+                                        onChange={(val) => setFilters({ ...filters, category: val })}
+                                        options={[
+                                            { value: "", label: "All Categories" },
+                                            ...categories.map((cat) => ({ value: cat, label: cat }))
+                                        ]}
+                                        placeholder="Select Category"
+                                    />
 
                                     {/* City */}
                                     <div>

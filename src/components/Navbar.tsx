@@ -22,11 +22,26 @@ interface Claim {
   finderEmail: string;
 }
 
+interface MatchNotification {
+  _id: string;
+  title: string;
+  message: string;
+  relatedItem: {
+    _id: string;
+    title: string;
+    type: string;
+  } | null;
+  type: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export function Navbar() {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [notifications, setNotifications] = useState<Claim[]>([]);
+  const [matchNotifications, setMatchNotifications] = useState<MatchNotification[]>([]);
   const [chatList, setChatList] = useState<Claim[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [showChatDropdown, setShowChatDropdown] = useState(false);
@@ -54,10 +69,12 @@ export function Navbar() {
 
       if (parsedUser) {
         fetchNotifications(parsedUser.email);
+        fetchMatchNotifications(parsedUser.email);
         fetchChatList(parsedUser.email);
 
         const interval = setInterval(() => {
           fetchNotifications(parsedUser.email);
+          fetchMatchNotifications(parsedUser.email);
           fetchChatList(parsedUser.email);
         }, 5000);
 
@@ -91,6 +108,37 @@ export function Navbar() {
       setNotifications(res.data.filter((n: Claim) => n.status === 'pending'));
     } catch (err) {
       console.error("Error fetching notifications:", err);
+    }
+  };
+
+  const fetchMatchNotifications = async (email: string) => {
+    try {
+      const res = await axios.get(`${API_URL}/api/notifications?email=${email}`);
+      setMatchNotifications(res.data);
+    } catch (err) {
+      console.error("Error fetching match notifications:", err);
+    }
+  };
+
+  const markNotificationRead = async (id: string, itemId: string) => {
+    try {
+      await axios.patch(`${API_URL}/api/notifications/${id}`);
+      setMatchNotifications(prev => prev.filter(n => n._id !== id));
+      setShowDropdown(false);
+      // Optional: Navigate to item?
+      // Since relatedItem is populated, we can assume it exists.
+      // But the current page structure usually opens items in a modal (FindItem). 
+      // If we are on FindItem, we might want to trigger the modal.
+      // Or we can simple navigate to /find?item=ID if we implement that.
+      // For now, let's just assume we want to user to go to Find page.
+      // Ideally, FindItem page should support opening an item by ID from URL.
+      // Let's modify the router push to include query param if possible, or just go to /find.
+      // Actually, let's look at FindItem. It has selectedItem state. It doesn't seem to read from URL param yet.
+      // I'll just navigate to /find.
+      router.push("/find");
+      // A future improvement would be to open the modal automatically.
+    } catch (err) {
+      console.error("Error marking notification read:", err);
     }
   };
 
@@ -148,7 +196,8 @@ export function Navbar() {
 
         <div className="hidden lg:flex gap-6">
           {[
-            { path: "/", label: "Home" }, // Actually Home is / mostly, but keeping 'home' if needed
+            { path: "/", label: "Home" },
+            { path: "/dashboard", label: "Dashboard" },
             { path: "/find", label: "Find Item" },
             { path: "/post", label: "Post Item" }
           ].map((item) => (
@@ -241,87 +290,105 @@ export function Navbar() {
                       setShowChatDropdown(false);
                     }}
                   />
-                  {notifications.length > 0 && (
+                  {(notifications.length > 0 || matchNotifications.length > 0) && (
                     <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-1.5">
-                      {notifications.length}
+                      {notifications.length + matchNotifications.length}
                     </span>
                   )}
 
                   {showDropdown && (
-                    <div className="absolute right-0 mt-3 bg-neutral-900/95 text-white p-3 rounded-lg shadow-xl w-72 border border-white/10 z-50">
+                    <div className="absolute right-0 mt-3 bg-neutral-900/95 text-white p-3 rounded-lg shadow-xl w-80 border border-white/10 z-50 max-h-96 overflow-y-auto custom-scrollbar">
                       <h4 className="text-gray-200 mb-2 font-semibold text-sm">
                         Notifications
                       </h4>
 
-                      {notifications.length === 0 ? (
+                      {notifications.length === 0 && matchNotifications.length === 0 ? (
                         <div className="flex flex-col items-center justify-center text-center py-4 text-gray-400 text-sm">
-                          <p>No new claim requests</p>
+                          <p>No new notifications</p>
                         </div>
                       ) : (
-                        notifications.map((claim) => {
-                          const isFinder = user?.email === claim.finderEmail;
-
-                          return (
+                        <div className="space-y-2">
+                          {matchNotifications.map((notif) => (
                             <div
-                              key={claim._id}
-                              className="text-sm border-b border-white/10 pb-2 mb-2 hover:bg-white/5 rounded-md p-2 transition"
+                              key={notif._id}
+                              className="text-sm border-b border-white/10 pb-2 bg-white/5 rounded-md p-3 hover:bg-white/10 transition cursor-pointer group"
+                              onClick={() => notif.relatedItem && markNotificationRead(notif._id, notif.relatedItem._id)}
                             >
-                              <div className="flex justify-between items-start">
+                              <div className="flex items-start gap-3">
+                                <span className="text-xl group-hover:scale-110 transition-transform">🔍</span>
                                 <div>
-                                  <p className="font-semibold text-yellow-400 mb-1">
-                                    {claim.status === 'approved' ? 'Active Chat' : 'New Claim Request'}
-                                  </p>
-                                  <p>
-                                    <span className="text-gray-300">Item:</span>{" "}
-                                    {claim.itemId?.title || "Item Deleted"}
-                                  </p>
-                                  <p>
-                                    <span className="text-gray-300">{isFinder ? "Claimant" : "Finder"}:</span>{" "}
-                                    {isFinder ? claim.claimantName : claim.finderEmail}
-                                  </p>
-                                  {claim.status === 'pending' && isFinder && (
-                                    <p>
-                                      <span className="text-gray-300">Answer:</span>{" "}
-                                      {claim.answer}
+                                  <p className="font-semibold text-yellow-400 mb-1">{notif.title}</p>
+                                  <p className="text-gray-300 text-xs leading-relaxed">{notif.message}</p>
+                                  <p className="text-xs text-blue-400 mt-2 font-medium">Click to view details</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+
+                          {notifications.map((claim) => {
+                            const isFinder = user?.email === claim.finderEmail;
+
+                            return (
+                              <div
+                                key={claim._id}
+                                className="text-sm border-b border-white/10 pb-2 bg-white/5 rounded-md p-3 hover:bg-white/10 transition"
+                              >
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <p className="font-semibold text-yellow-400 mb-1">
+                                      {claim.status === 'approved' ? 'Active Chat' : 'New Claim Request'}
                                     </p>
+                                    <p className="text-gray-300 text-xs mb-1">
+                                      <span className="text-gray-400">Item:</span>{" "}
+                                      {claim.itemId?.title || "Item Deleted"}
+                                    </p>
+                                    <p className="text-gray-300 text-xs mb-1">
+                                      <span className="text-gray-400">{isFinder ? "Claimant" : "Finder"}:</span>{" "}
+                                      {isFinder ? claim.claimantName : claim.finderEmail}
+                                    </p>
+                                    {claim.status === 'pending' && isFinder && (
+                                      <p className="text-gray-300 text-xs">
+                                        <span className="text-gray-400">Answer:</span>{" "}
+                                        {claim.answer}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="flex gap-2 mt-3">
+                                  {claim.status === 'approved' ? (
+                                    <Link
+                                      href={`/chat/${claim._id}`}
+                                      className="bg-yellow-400 text-black px-3 py-1.5 rounded text-xs font-bold hover:bg-yellow-500 transition w-full text-center block"
+                                      onClick={() => setShowDropdown(false)}
+                                    >
+                                      Open Chat
+                                    </Link>
+                                  ) : (
+                                    <>
+                                      <button
+                                        onClick={() =>
+                                          handleClaimAction(claim._id, "approved")
+                                        }
+                                        className="bg-green-500/90 px-2 py-1.5 rounded text-white text-xs hover:bg-green-600 transition flex-1 font-semibold"
+                                      >
+                                        Accept
+                                      </button>
+                                      <button
+                                        onClick={() =>
+                                          handleClaimAction(claim._id, "rejected")
+                                        }
+                                        className="bg-red-500/90 px-2 py-1.5 rounded text-white text-xs hover:bg-red-600 transition flex-1 font-semibold"
+                                      >
+                                        Reject
+                                      </button>
+                                    </>
                                   )}
                                 </div>
                               </div>
-
-
-                              <div className="flex gap-2 mt-2">
-                                {claim.status === 'approved' ? (
-                                  <Link
-                                    href={`/chat/${claim._id}`}
-                                    className="bg-yellow-400 text-black px-3 py-1.5 rounded text-xs font-bold hover:bg-yellow-500 transition w-full text-center block"
-                                    onClick={() => setShowDropdown(false)}
-                                  >
-                                    Open Chat
-                                  </Link>
-                                ) : (
-                                  <>
-                                    <button
-                                      onClick={() =>
-                                        handleClaimAction(claim._id, "approved")
-                                      }
-                                      className="bg-green-500/90 px-2 py-1 rounded text-white text-xs hover:bg-green-600 transition flex-1"
-                                    >
-                                      Accept
-                                    </button>
-                                    <button
-                                      onClick={() =>
-                                        handleClaimAction(claim._id, "rejected")
-                                      }
-                                      className="bg-red-500/90 px-2 py-1 rounded text-white text-xs hover:bg-red-600 transition flex-1"
-                                    >
-                                      Reject
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })
+                            );
+                          })}
+                        </div>
                       )}
                     </div>
                   )}
@@ -394,6 +461,7 @@ export function Navbar() {
 
         {[
           { path: "/", label: "Home" },
+          { path: "/dashboard", label: "Dashboard" },
           { path: "/find", label: "Find Item" },
           { path: "/post", label: "Post Item" }
         ].map((item) => (

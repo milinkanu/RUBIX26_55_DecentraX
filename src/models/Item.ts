@@ -14,6 +14,7 @@ export interface IItem extends Document {
         area: string;
         landmark?: string;
     };
+    keywords?: string[];
     file: string;
     createdAt: Date;
 }
@@ -37,6 +38,7 @@ const itemSchema: Schema<IItem> = new Schema(
             landmark: String,
         },
         file: String,
+        keywords: [String],
     },
     { timestamps: true }
 );
