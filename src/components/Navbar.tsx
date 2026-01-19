@@ -18,6 +18,8 @@ interface Claim {
     title: string;
   };
   answer: string;
+  status: string;
+  finderEmail: string;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
@@ -149,81 +151,110 @@ export function Navbar() {
                       <p>No new claim requests</p>
                     </div>
                   ) : (
-                    notifications.map((claim) => (
-                      <div
-                        key={claim._id}
-                        className="text-sm border-b border-white/10 pb-2 mb-2 hover:bg-white/5 rounded-md p-2 transition"
-                      >
-                        <p>
-                          <span className="text-gray-300">Username:</span>{" "}
-                          {claim.claimantName}
-                        </p>
-                        <p>
-                          <span className="text-gray-300">Item:</span>{" "}
-                          {claim.itemId.title}
-                        </p>
-                        <p>
-                          <span className="text-gray-300">Answer:</span>{" "}
-                          {claim.answer}
-                        </p>
-                        <div className="flex gap-2 mt-2">
-                          <button
-                            onClick={() =>
-                              handleClaimAction(claim._id, "approved")
-                            }
-                            className="bg-green-500/90 px-2 py-1 rounded text-white text-xs hover:bg-green-600 transition"
-                          >
-                            Accept
-                          </button>
-                          <button
-                            onClick={() =>
-                              handleClaimAction(claim._id, "rejected")
-                            }
-                            className="bg-red-500/90 px-2 py-1 rounded text-white text-xs hover:bg-red-600 transition"
-                          >
-                            Reject
-                          </button>
+                    notifications.map((claim) => {
+                      const isFinder = user?.email === claim.finderEmail;
+
+                      return (
+                        <div
+                          key={claim._id}
+                          className="text-sm border-b border-white/10 pb-2 mb-2 hover:bg-white/5 rounded-md p-2 transition"
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-semibold text-yellow-400 mb-1">
+                                {claim.status === 'approved' ? 'Active Chat' : 'New Claim Request'}
+                              </p>
+                              <p>
+                                <span className="text-gray-300">Item:</span>{" "}
+                                {claim.itemId?.title || "Item Deleted"}
+                              </p>
+                              <p>
+                                <span className="text-gray-300">{isFinder ? "Claimant" : "Finder"}:</span>{" "}
+                                {isFinder ? claim.claimantName : claim.finderEmail}
+                              </p>
+                              {claim.status === 'pending' && isFinder && (
+                                <p>
+                                  <span className="text-gray-300">Answer:</span>{" "}
+                                  {claim.answer}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+
+                          <div className="flex gap-2 mt-2">
+                            {claim.status === 'approved' ? (
+                              <Link
+                                href={`/chat/${claim._id}`}
+                                className="bg-yellow-400 text-black px-3 py-1.5 rounded text-xs font-bold hover:bg-yellow-500 transition w-full text-center block"
+                                onClick={() => setShowDropdown(false)}
+                              >
+                                Open Chat
+                              </Link>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() =>
+                                    handleClaimAction(claim._id, "approved")
+                                  }
+                                  className="bg-green-500/90 px-2 py-1 rounded text-white text-xs hover:bg-green-600 transition flex-1"
+                                >
+                                  Accept
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    handleClaimAction(claim._id, "rejected")
+                                  }
+                                  className="bg-red-500/90 px-2 py-1 rounded text-white text-xs hover:bg-red-600 transition flex-1"
+                                >
+                                  Reject
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               )}
             </div>
           )}
 
-          {user ? (
-            <>
-              <span className="text-white text-sm hidden sm:block">
-                👋 Hello,{" "}
-                <span className="text-yellow-400 font-semibold">
-                  {user.name || user.email}
+          {
+            user ? (
+              <>
+                <span className="text-white text-sm hidden sm:block">
+                  👋 Hello,{" "}
+                  <span className="text-yellow-400 font-semibold">
+                    {user.name || user.email}
+                  </span>
                 </span>
-              </span>
 
-              <button
-                onClick={handleLogout}
-                className="hidden lg:inline-flex bg-yellow-400 text-black px-3 py-1.5 rounded-lg font-semibold hover:bg-yellow-500 transition-colors"
-              >
-                Logout
-              </button>
-            </>
-          ) : (
-            <>
-              <Link
-                href="/login"
-                className="hidden sm:inline-flex bg-yellow-400 text-black px-4 py-2 rounded-lg font-semibold hover:bg-yellow-500 transition-colors"
-              >
-                Login
-              </Link>
-              <Link
-                href="/signup"
-                className="hidden sm:inline-flex bg-white/10 text-white px-4 py-2 rounded-lg font-semibold hover:bg-white/20 transition-colors"
-              >
-                Sign Up
-              </Link>
-            </>
-          )}
+                <button
+                  onClick={handleLogout}
+                  className="hidden lg:inline-flex bg-yellow-400 text-black px-3 py-1.5 rounded-lg font-semibold hover:bg-yellow-500 transition-colors"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="hidden sm:inline-flex bg-yellow-400 text-black px-4 py-2 rounded-lg font-semibold hover:bg-yellow-500 transition-colors"
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/signup"
+                  className="hidden sm:inline-flex bg-white/10 text-white px-4 py-2 rounded-lg font-semibold hover:bg-white/20 transition-colors"
+                >
+                  Sign Up
+                </Link>
+              </>
+            )
+          }
 
           <button
             ref={buttonRef}
@@ -236,8 +267,8 @@ export function Navbar() {
               <Menu className="h-6 w-6" />
             )}
           </button>
-        </div>
-      </div>
+        </div >
+      </div >
 
       <div
         ref={sidebarRef}
@@ -298,6 +329,6 @@ export function Navbar() {
           </>
         )}
       </div>
-    </nav>
+    </nav >
   );
 }
