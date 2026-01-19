@@ -19,6 +19,10 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ message: "You have already claimed this item." }, { status: 400 });
         }
 
+        if (item.email === claimantEmail) {
+            return NextResponse.json({ message: "You cannot claim your own item." }, { status: 400 });
+        }
+
 
         const newClaim = new Claim({
             itemId,

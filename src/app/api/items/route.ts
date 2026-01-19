@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
         }
 
         console.log("Query built:", query);
-        const items = await Item.find(query).sort({ createdAt: -1 });
+        const items = await Item.find(query).select("+email").sort({ createdAt: -1 });
         return NextResponse.json(items);
     } catch (err: any) {
         return NextResponse.json({ success: false, message: err.message }, { status: 500 });
