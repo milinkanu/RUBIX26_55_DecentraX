@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import Claim from "@/models/Claim";
 
-export async function GET(req: NextRequest, { params }: { params: { email: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ email: string }> }) {
+    const params = await props.params;
     await connectDB();
     try {
         const { email } = params;

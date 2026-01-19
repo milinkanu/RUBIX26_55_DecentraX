@@ -5,7 +5,8 @@ import Claim from "@/models/Claim";
 // Need to handle params correctly in Next.js 14 Route handlers
 // export async function GET(req: NextRequest, { params }: { params: { id: string } })
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+    const params = await props.params;
     await connectDB();
     try {
         // Populate without sensitive info
@@ -24,7 +25,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+    const params = await props.params;
     await connectDB();
     try {
         const { status } = await req.json();

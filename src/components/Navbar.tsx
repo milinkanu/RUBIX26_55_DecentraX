@@ -20,7 +20,7 @@ interface Claim {
   answer: string;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export function Navbar() {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
