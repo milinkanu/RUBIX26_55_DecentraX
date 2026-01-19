@@ -13,9 +13,11 @@ export async function GET(req: NextRequest, props: { params: Promise<{ email: st
         // Note: in Next.js 15 params promise, in 14 it's object. Assuming 14/15 compat.
 
         const claims = await Claim.find({
-            finderEmail: email,
-            status: "pending",
-        }).populate("itemId");
+            $or: [
+                { finderEmail: email, status: { $in: ["pending", "approved"] } },
+                { claimantEmail: email, status: "approved" }
+            ]
+        }).populate("itemId").sort({ updatedAt: -1 });
 
         return NextResponse.json(claims);
     } catch (error: any) {
