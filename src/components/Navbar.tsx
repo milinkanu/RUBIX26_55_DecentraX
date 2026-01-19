@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import { AlertTriangle, Bell, Menu, X, MessageCircle, Search } from "lucide-react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
@@ -38,7 +38,7 @@ interface MatchNotification {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
-export function Navbar() {
+function NavbarContent() {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [notifications, setNotifications] = useState<Claim[]>([]);
   const [matchNotifications, setMatchNotifications] = useState<MatchNotification[]>([]);
@@ -535,5 +535,13 @@ export function Navbar() {
         )}
       </div>
     </nav >
+  );
+}
+
+export function Navbar() {
+  return (
+    <Suspense fallback={<div className="p-4 bg-black text-white">Loading...</div>}>
+      <NavbarContent />
+    </Suspense>
   );
 }
