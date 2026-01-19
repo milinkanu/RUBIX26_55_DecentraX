@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { AlertTriangle, Bell, Menu, X, MessageCircle } from "lucide-react";
+import { AlertTriangle, Bell, Menu, X, MessageCircle, Search } from "lucide-react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import axios from "axios";
@@ -36,6 +36,14 @@ export function Navbar() {
   const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
   const pathname = usePathname();
+
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && searchTerm.trim()) {
+      router.push(`/find?search=${encodeURIComponent(searchTerm.trim())}`);
+    }
+  };
 
   useEffect(() => {
     // Client-side only
@@ -156,6 +164,23 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-3 relative">
+
+
+
+
+          {/* Search Bar */}
+          <div className="relative hidden md:block">
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={handleSearch}
+              className="bg-transparent border border-yellow-400 rounded-full py-1.5 px-4 pl-10 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-yellow-400 w-48 lg:w-64 transition-all"
+            />
+            <Search className="h-4 w-4 text-yellow-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+          </div>
+
           {user && (
             <div className="relative" ref={dropdownRef}>
               <div className="flex gap-4">
@@ -305,40 +330,39 @@ export function Navbar() {
             </div>
           )}
 
-          {
-            user ? (
-              <>
-                <span className="text-white text-sm hidden sm:block">
-                  👋 Hello,{" "}
-                  <span className="text-yellow-400 font-semibold">
-                    {user.name || user.email}
-                  </span>
+          {/* User Profile / Login */}
+          {user ? (
+            <>
+              <span className="text-white text-sm hidden sm:block">
+                👋 Hello,{" "}
+                <span className="text-yellow-400 font-semibold">
+                  {user.name || user.email}
                 </span>
+              </span>
 
-                <button
-                  onClick={handleLogout}
-                  className="hidden lg:inline-flex bg-yellow-400 text-black px-3 py-1.5 rounded-lg font-semibold hover:bg-yellow-500 transition-colors"
-                >
-                  Logout
-                </button>
-              </>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="hidden sm:inline-flex bg-yellow-400 text-black px-4 py-2 rounded-lg font-semibold hover:bg-yellow-500 transition-colors"
-                >
-                  Login
-                </Link>
-                <Link
-                  href="/signup"
-                  className="hidden sm:inline-flex bg-white/10 text-white px-4 py-2 rounded-lg font-semibold hover:bg-white/20 transition-colors"
-                >
-                  Sign Up
-                </Link>
-              </>
-            )
-          }
+              <button
+                onClick={handleLogout}
+                className="hidden lg:inline-flex bg-yellow-400 text-black px-3 py-1.5 rounded-lg font-semibold hover:bg-yellow-500 transition-colors"
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="hidden sm:inline-flex bg-yellow-400 text-black px-4 py-2 rounded-lg font-semibold hover:bg-yellow-500 transition-colors"
+              >
+                Login
+              </Link>
+              <Link
+                href="/signup"
+                className="hidden sm:inline-flex bg-white/10 text-white px-4 py-2 rounded-lg font-semibold hover:bg-white/20 transition-colors"
+              >
+                Sign Up
+              </Link>
+            </>
+          )}
 
           <button
             ref={buttonRef}
@@ -351,8 +375,8 @@ export function Navbar() {
               <Menu className="h-6 w-6" />
             )}
           </button>
-        </div >
-      </div >
+        </div>
+      </div>
 
       <div
         ref={sidebarRef}
