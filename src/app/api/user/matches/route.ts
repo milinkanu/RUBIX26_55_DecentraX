@@ -28,7 +28,6 @@ export async function GET(req: NextRequest) {
         // Filter out matches where the item was deleted (if any somehow remained)
         const validMatches = matches.filter(m => m.relatedItem !== null);
 
-        console.log(`[API] Found ${validMatches.length} valid match notifications for user ${email}`);
         return NextResponse.json(validMatches);
     } catch (err: any) {
         return NextResponse.json({ success: false, message: err.message }, { status: 500 });

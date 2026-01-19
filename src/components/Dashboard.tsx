@@ -44,8 +44,15 @@ interface Match {
     createdAt: string;
 }
 
+interface User {
+    _id: string;
+    name: string;
+    email: string;
+    createdAt: string;
+}
+
 export function Dashboard() {
-    const [user, setUser] = useState<any>(null);
+    const [user, setUser] = useState<User | null>(null);
     const [matches, setMatches] = useState<Match[]>([]);
     const [userItems, setUserItems] = useState<Item[]>([]);
     const [loading, setLoading] = useState(true);
@@ -202,7 +209,7 @@ export function Dashboard() {
                                 </p>
                             </div>
                         ) : (
-                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                                 {matches.map((match) => (
                                     <div
                                         key={match._id}
@@ -273,7 +280,7 @@ export function Dashboard() {
                                 </p>
                             </div>
                         ) : (
-                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                                 {userItems.map((item) => (
                                     <div
                                         key={item._id}

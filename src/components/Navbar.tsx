@@ -332,7 +332,13 @@ function NavbarContent() {
                             <div
                               key={notif._id}
                               className="text-sm border-b border-white/10 pb-2 bg-white/5 rounded-md p-3 hover:bg-white/10 transition cursor-pointer group relative"
-                              onClick={() => notif.relatedItem && markNotificationRead(notif._id, notif.relatedItem._id)}
+                              onClick={() => {
+                                if (notif.relatedItem) {
+                                  // Defensively handle both populated and unpopulated relatedItem
+                                  const itemId = (notif.relatedItem as any)._id || notif.relatedItem;
+                                  markNotificationRead(notif._id, itemId as string);
+                                }
+                              }}
                             >
                               <button
                                 onClick={(e) => {

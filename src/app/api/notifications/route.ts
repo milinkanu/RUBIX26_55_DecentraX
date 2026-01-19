@@ -25,7 +25,17 @@ export async function GET(req: NextRequest) {
             .populate("relatedItem") // Populate item details
             .sort({ createdAt: -1 });
 
-        return NextResponse.json(notifications);
+        // Filter out notifications where the related item has been deleted
+        const validNotifications = notifications.filter(n => {
+            // If it's a MATCH_FOUND typ notification, relatedItem IS required.
+            // For other types (like system alerts), relatedItem might be optional.
+            if (n.type === 'MATCH_FOUND' || n.type === 'CLAIM') {
+                return n.relatedItem !== null;
+            }
+            return true;
+        });
+
+        return NextResponse.json(validNotifications);
     } catch (err: any) {
         return NextResponse.json({ success: false, message: err.message }, { status: 500 });
     }
