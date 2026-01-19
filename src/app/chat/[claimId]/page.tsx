@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { useParams, useRouter } from "next/navigation";
-import { Send, User as UserIcon, MapPin, ArrowLeft, Search, Paperclip, MoreVertical, Phone } from "lucide-react";
+import { Send, User as UserIcon, MapPin, ArrowLeft, Search, Paperclip, MoreVertical, Phone, AlertTriangle } from "lucide-react";
 import Image from "next/image";
 
 interface Message {
@@ -320,6 +320,16 @@ export default function ChatPage() {
                     <p className="text-gray-500 max-w-sm leading-relaxed mb-8">
                         Select a conversation from the sidebar to start chatting. Coordinate meetups safely and recover your lost items.
                     </p>
+
+                    <div className="bg-yellow-400/5 border border-yellow-400/20 p-4 rounded-xl max-w-md mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
+                        <div className="flex items-center justify-center gap-2 text-yellow-400 font-bold mb-2">
+                            <AlertTriangle size={20} />
+                            <span>Safety Tip</span>
+                        </div>
+                        <p className="text-gray-400 text-sm leading-relaxed">
+                            For your safety, <span className="text-gray-200 font-semibold">never share sensitive personal information</span> like passwords, bank details, or home addresses. Always meet in public places for item exchanges.
+                        </p>
+                    </div>
                     <button
                         onClick={() => router.push('/dashboard')}
                         className="px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl border border-white/10 transition flex items-center gap-2 font-medium"
@@ -328,7 +338,8 @@ export default function ChatPage() {
                         Back to Dashboard
                     </button>
                 </div>
-            )}
-        </div>
+            )
+            }
+        </div >
     );
 }
