@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Search, X, User, Phone, Mail, Paperclip } from "lucide-react";
+import { Search, X, User, Phone, Mail, Paperclip, Filter } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
 import { Navbar } from "./Navbar";
@@ -47,6 +47,7 @@ export function FindItem() {
         city: "",
         area: "",
     });
+    const [showFilter, setShowFilter] = useState(false);
 
     const [selectedItem, setSelectedItem] = useState<Item | null>(null);
     const [showClaimForm, setShowClaimForm] = useState(false);
@@ -83,6 +84,7 @@ export function FindItem() {
 
     const handleApplyFilters = () => {
         fetchItems();
+        setShowFilter(false);
     };
 
     const handleClearFilters = () => {
@@ -94,6 +96,7 @@ export function FindItem() {
                 setLoading(false);
             })
             .catch(() => setLoading(false));
+        setShowFilter(false);
     };
 
     const handleSubmitAnswer = async () => {
@@ -179,90 +182,104 @@ export function FindItem() {
                 <Navbar />
 
                 <div className="container mx-auto px-4 py-8">
-                    <h1 className="text-4xl font-bold text-center mb-10">Find Lost Items</h1>
+                    <div className="flex flex-col md:flex-row justify-center items-center gap-4 mb-8 relative">
+                        <button
+                            onClick={() => setShowFilter(!showFilter)}
+                            className="flex items-center gap-2 px-4 py-2 bg-yellow-400 text-black font-bold rounded-lg hover:bg-yellow-500 transition-colors shadow-lg shadow-yellow-400/20 absolute left-8 top-2"
+                        >
+                            <Filter className="w-4 h-4" />
+                            {showFilter ? "Hide Filters" : "Filters"}
+                        </button>
+                        <h1 className="text-4xl font-bold text-center">Find Lost Items</h1>
+                    </div>
 
-                    <div className="flex flex-col lg:flex-row gap-8">
+                    <div className="flex flex-col lg:flex-row lg:items-start gap-8">
                         {/* Filters Sidebar */}
-                        <div className="w-full lg:w-1/4 h-fit bg-gray-900/80 backdrop-blur-md border border-gray-700 p-6 rounded-xl sticky top-24 flex flex-col gap-6">
-                            <h2 className="text-xl font-semibold flex items-center gap-2 text-white">
-                                <Search className="w-5 h-5 text-yellow-400" />
-                                Filters
-                            </h2>
+                        <div className={`flex flex-col transition-all duration-300 ${showFilter ? 'w-full lg:w-1/4 opacity-100' : 'w-0 opacity-0 overflow-hidden'}`}>
 
-                            {/* Type */}
-                            <div>
-                                <label className="block text-sm text-gray-400 mb-2">Type</label>
-                                <select
-                                    value={filters.type}
-                                    onChange={(e) => setFilters({ ...filters, type: e.target.value })}
-                                    className="w-full bg-black/50 border border-gray-600 rounded-lg p-3 text-white focus:border-yellow-400 focus:outline-none transition-colors"
-                                >
-                                    <option value="">All Types</option>
-                                    <option value="Lost">Lost Items</option>
-                                    <option value="Found">Found Items</option>
-                                </select>
-                            </div>
+                            {showFilter && (
+                                <div className="bg-gray-900/80 backdrop-blur-md border border-gray-700 p-6 rounded-xl sticky top-24 flex flex-col gap-6 animate-in fade-in slide-in-from-top-4 duration-300">
+                                    <h2 className="text-xl font-semibold flex items-center gap-2 text-white">
+                                        <Search className="w-5 h-5 text-yellow-400" />
+                                        Filters
+                                    </h2>
 
-                            {/* Category */}
-                            <div>
-                                <label className="block text-sm text-gray-400 mb-2">Category</label>
-                                <select
-                                    value={filters.category}
-                                    onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-                                    className="w-full bg-black/50 border border-gray-600 rounded-lg p-3 text-white focus:border-yellow-400 focus:outline-none transition-colors"
-                                >
-                                    <option value="">All Categories</option>
-                                    {categories.map((cat) => (
-                                        <option key={cat} value={cat}>{cat}</option>
-                                    ))}
-                                </select>
-                            </div>
+                                    {/* Type */}
+                                    <div>
+                                        <label className="block text-sm text-gray-400 mb-2">Type</label>
+                                        <select
+                                            value={filters.type}
+                                            onChange={(e) => setFilters({ ...filters, type: e.target.value })}
+                                            className="w-full bg-black/50 border border-gray-600 rounded-lg p-3 text-white focus:border-yellow-400 focus:outline-none transition-colors"
+                                        >
+                                            <option value="">All Types</option>
+                                            <option value="Lost">Lost Items</option>
+                                            <option value="Found">Found Items</option>
+                                        </select>
+                                    </div>
 
-                            {/* City */}
-                            <div>
-                                <label className="block text-sm text-gray-400 mb-2">City</label>
-                                <input
-                                    type="text"
-                                    placeholder="Enter City"
-                                    value={filters.city}
-                                    onChange={(e) => setFilters({ ...filters, city: e.target.value })}
-                                    className="w-full bg-black/50 border border-gray-600 rounded-lg p-3 text-white focus:border-yellow-400 focus:outline-none transition-colors"
-                                />
-                            </div>
+                                    {/* Category */}
+                                    <div>
+                                        <label className="block text-sm text-gray-400 mb-2">Category</label>
+                                        <select
+                                            value={filters.category}
+                                            onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+                                            className="w-full bg-black/50 border border-gray-600 rounded-lg p-3 text-white focus:border-yellow-400 focus:outline-none transition-colors"
+                                        >
+                                            <option value="">All Categories</option>
+                                            {categories.map((cat) => (
+                                                <option key={cat} value={cat}>{cat}</option>
+                                            ))}
+                                        </select>
+                                    </div>
 
-                            {/* Area */}
-                            <div>
-                                <label className="block text-sm text-gray-400 mb-2">Area</label>
-                                <input
-                                    type="text"
-                                    placeholder="Enter Area"
-                                    value={filters.area}
-                                    onChange={(e) => setFilters({ ...filters, area: e.target.value })}
-                                    className="w-full bg-black/50 border border-gray-600 rounded-lg p-3 text-white focus:border-yellow-400 focus:outline-none transition-colors"
-                                />
-                            </div>
+                                    {/* City */}
+                                    <div>
+                                        <label className="block text-sm text-gray-400 mb-2">City</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Enter City"
+                                            value={filters.city}
+                                            onChange={(e) => setFilters({ ...filters, city: e.target.value })}
+                                            className="w-full bg-black/50 border border-gray-600 rounded-lg p-3 text-white focus:border-yellow-400 focus:outline-none transition-colors"
+                                        />
+                                    </div>
 
-                            <div className="flex gap-3 pt-2">
-                                <button
-                                    onClick={handleApplyFilters}
-                                    className="flex-1 bg-yellow-400 text-black py-2.5 rounded-lg font-bold hover:bg-yellow-500 transition-all hover:scale-[1.02]"
-                                >
-                                    Apply
-                                </button>
-                                <button
-                                    onClick={handleClearFilters}
-                                    className="px-5 py-2.5 border border-gray-600 rounded-lg font-semibold hover:bg-white/10 transition-colors"
-                                >
-                                    Clear
-                                </button>
-                            </div>
+                                    {/* Area */}
+                                    <div>
+                                        <label className="block text-sm text-gray-400 mb-2">Area</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Enter Area"
+                                            value={filters.area}
+                                            onChange={(e) => setFilters({ ...filters, area: e.target.value })}
+                                            className="w-full bg-black/50 border border-gray-600 rounded-lg p-3 text-white focus:border-yellow-400 focus:outline-none transition-colors"
+                                        />
+                                    </div>
+
+                                    <div className="flex gap-3 pt-2">
+                                        <button
+                                            onClick={handleApplyFilters}
+                                            className="flex-1 bg-yellow-400 text-black py-2.5 rounded-lg font-bold hover:bg-yellow-500 transition-all hover:scale-[1.02]"
+                                        >
+                                            Apply
+                                        </button>
+                                        <button
+                                            onClick={handleClearFilters}
+                                            className="px-5 py-2.5 border border-gray-600 rounded-lg font-semibold hover:bg-white/10 transition-colors"
+                                        >
+                                            Clear
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
 
                         {/* Results Grid */}
                         <div className="flex-1">
                             {loading ? (
-                                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <div className={`grid sm:grid-cols-2 gap-6 ${!showFilter ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
                                     {[1, 2, 3, 4, 5, 6].map((n) => (
                                         <div key={n} className="bg-gray-800/50 rounded-xl h-80 animate-pulse"></div>
                                     ))}
@@ -274,7 +291,7 @@ export function FindItem() {
                                     <p className="text-gray-500 mt-2">Try adjusting your filters to see more results</p>
                                 </div>
                             ) : (
-                                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <div className={`grid sm:grid-cols-2 gap-6 ${!showFilter ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
                                     {items.map((item) => (
                                         <div
                                             key={item._id}
