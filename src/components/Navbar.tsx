@@ -112,6 +112,16 @@ function NavbarContent() {
     }
   }, [pathname]);
 
+  // Listen for chat read events to update badge immediately
+  useEffect(() => {
+    const handleChatRead = () => {
+      if (user?.email) fetchChatList(user.email);
+    };
+
+    window.addEventListener('chat-read', handleChatRead);
+    return () => window.removeEventListener('chat-read', handleChatRead);
+  }, [user]);
+
   const handleClaimAction = async (claimId: string, status: string) => {
     try {
       await axios.patch(
@@ -216,8 +226,10 @@ function NavbarContent() {
     <nav className="relative z-[999]">
       <div className="bg-black/90 p-4 sticky top-0 flex justify-between items-center border-b border-white/10 backdrop-blur-md">
         <Link href="/" className="flex items-center gap-2">
-          <AlertTriangle className="h-8 w-8 text-yellow-400" />
-          <span className="text-xl font-bold text-white">FoundIt!</span>
+          <div className="w-8 h-8 bg-yellow-400 rounded-lg flex items-center justify-center text-black font-bold">
+            F!
+          </div>
+          <span className="text-xl font-bold text-white">Found<span className="text-yellow-400">It!</span></span>
         </Link>
 
         <div className="hidden lg:flex gap-6">
@@ -265,7 +277,7 @@ function NavbarContent() {
                       className="text-yellow-400 h-6 w-6 cursor-pointer hover:text-yellow-300 transition-colors"
                     />
                     {chatList.reduce((acc, chat: any) => acc + (chat.unreadCount || 0), 0) > 0 && (
-                      <span className="absolute -top-2 -right-2 bg-yellow-400 text-black text-xs rounded-full px-1.5 font-bold border border-black">
+                      <span className="absolute -top-2 -right-2 bg-yellow-400 text-black text-xs rounded-full px-1.5 font-bold border border-black min-w-[18px] h-[18px] flex items-center justify-center">
                         {chatList.reduce((acc, chat: any) => acc + (chat.unreadCount || 0), 0)}
                       </span>
                     )}

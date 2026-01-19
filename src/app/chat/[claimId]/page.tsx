@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { useParams, useRouter } from "next/navigation";
-import { Send, User as UserIcon, MapPin, ArrowLeft, Search, Paperclip, MoreVertical, Phone } from "lucide-react";
+import { Send, User as UserIcon, MapPin, ArrowLeft, Search, Paperclip, MoreVertical, Phone, AlertTriangle } from "lucide-react";
 import Image from "next/image";
 
 interface Message {
@@ -31,16 +31,54 @@ interface ChatListItem {
     unreadCount: number;
 }
 
+// Global cache to persist state across navigations (simulating a store/context)
+let globalChatsCache: ChatListItem[] = [];
+let globalReadClaims = new Set<string>();
+
 export default function ChatPage() {
     const { claimId } = useParams();
     const router = useRouter();
+    const [unreadDividerId, setUnreadDividerId] = useState<string | null>(null);
+    const [unreadSessionCount, setUnreadSessionCount] = useState<number>(0);
+    const initialFetchDone = useRef<boolean>(false);
+
+    // Initialize with global cache to prevent sidebar flicker/lag on navigation
     const [messages, setMessages] = useState<Message[]>([]);
-    const [chats, setChats] = useState<ChatListItem[]>([]);
+    const [chats, setChats] = useState<ChatListItem[]>(globalChatsCache);
     const [newMessage, setNewMessage] = useState("");
     const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
     const [currentChat, setCurrentChat] = useState<ChatListItem | null>(null);
     const [searchChat, setSearchChat] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    const claimIdRef = useRef(claimId);
+    claimIdRef.current = claimId; // Update synchronously on every render
+
+    useEffect(() => {
+        // Reset state when switch chatsimId;
+
+        // Mark current chat as read globally
+        if (typeof claimId === 'string') {
+            globalReadClaims.add(claimId);
+        }
+
+        // Reset message-specific state
+        setUnreadDividerId(null);
+        setUnreadSessionCount(0);
+        initialFetchDone.current = false;
+
+        // Clear messages to prevent ghosting
+        setMessages([]);
+
+        // Optimistically update local state AND global cache
+        if (claimId && chats.length > 0) {
+            const updatedChats = chats.map(c =>
+                c._id === claimId ? { ...c, unreadCount: 0 } : c
+            );
+            setChats(updatedChats);
+            globalChatsCache = updatedChats; // Update cache
+        }
+    }, [claimId]);
 
     useEffect(() => {
         const storedUser = localStorage.getItem("user");
@@ -51,6 +89,7 @@ export default function ChatPage() {
         const user = JSON.parse(storedUser);
         setCurrentUserEmail(user.email);
 
+        // Initial fetch
         fetchChatList(user.email);
         const interval = setInterval(() => fetchChatList(user.email), 5000);
         return () => clearInterval(interval);
@@ -58,12 +97,14 @@ export default function ChatPage() {
 
     useEffect(() => {
         if (claimId && currentUserEmail) {
+            // We don't need to find active chat here if we trust the URL
+            // But updating currentChat is good for the header info
             const active = chats.find(c => c._id === claimId);
             if (active) setCurrentChat(active);
+
             fetchMessages();
-            markMessagesRead();
         }
-    }, [claimId, chats, currentUserEmail]);
+    }, [claimId, currentUserEmail]);
 
     useEffect(() => {
         if (claimId) {
@@ -74,8 +115,11 @@ export default function ChatPage() {
         }
     }, [claimId]);
 
+    // Auto-scroll effect
     useEffect(() => {
-        scrollToBottom();
+        if (messages.length > 0 && !initialFetchDone.current) {
+            scrollToBottom();
+        }
     }, [messages]);
 
     const scrollToBottom = () => {
@@ -85,7 +129,22 @@ export default function ChatPage() {
     const fetchChatList = async (email: string) => {
         try {
             const res = await axios.get(`/api/chat/list/${email}`);
-            setChats(res.data);
+
+            // Sanitize unread counts:
+            // Only force 0 if it is the CURRENTLY OPEN chat.
+            // We trust the backend (ChatReadState) for everything else.
+            const sanitizedChats = res.data.map((chat: ChatListItem) => {
+                if (chat._id === claimIdRef.current) {
+                    return { ...chat, unreadCount: 0 };
+                }
+                return chat;
+            });
+
+            setChats(sanitizedChats);
+            globalChatsCache = sanitizedChats; // Keep global cache fresh
+
+            // Notify Navbar to update its badge
+            window.dispatchEvent(new Event('chat-read'));
         } catch (err) {
             console.error("Error fetching chat list:", err);
         }
@@ -93,12 +152,76 @@ export default function ChatPage() {
 
     const fetchMessages = async () => {
         try {
-            const res = await axios.get(`/api/chat/${claimId}`);
-            setMessages(res.data);
+            // Pass email to get smart metadata (lastReadAt)
+            const res = await axios.get(`/api/chat/${claimId}?email=${currentUserEmail}`);
+
+            let fetchedMessages: Message[] = [];
+            let lastReadAt: string | null = null;
+
+            if (Array.isArray(res.data)) {
+                fetchedMessages = res.data;
+            } else {
+                fetchedMessages = res.data.messages;
+                lastReadAt = res.data.lastReadAt;
+            }
+
+            // Logic to determine unread divider position (run only once per chat view)
+            if (!initialFetchDone.current && currentUserEmail) {
+                let firstUnread;
+                let count = 0;
+
+                if (lastReadAt) {
+                    // Pro Logic: Use Timestamp
+                    const lastReadDate = new Date(lastReadAt);
+                    firstUnread = fetchedMessages.find(m =>
+                        m.senderEmail !== currentUserEmail &&
+                        new Date(m.createdAt) > lastReadDate
+                    );
+                    count = fetchedMessages.filter(m =>
+                        m.senderEmail !== currentUserEmail &&
+                        new Date(m.createdAt) > lastReadDate
+                    ).length;
+                } else {
+                    // Legacy Fallback
+                    firstUnread = fetchedMessages.find(m => m.senderEmail !== currentUserEmail && !m.isRead);
+                    count = fetchedMessages.filter(m => m.senderEmail !== currentUserEmail && !m.isRead).length;
+                }
+
+                if (firstUnread) {
+                    setUnreadDividerId(firstUnread._id);
+                    setUnreadSessionCount(count);
+                }
+
+                // Set initial fetch done to true 
+                initialFetchDone.current = true;
+
+                // Scroll to bottom after initial load
+                setTimeout(scrollToBottom, 100);
+
+                // Auto-hide the "Unread Messages" divider after 2 seconds to reduce clutter
+                setTimeout(() => {
+                    setUnreadDividerId(null);
+                }, 2000);
+            }
+
+            // Always attempt to seek/confirm 'read' status on every fetch
+            // This acts as a self-healing mechanism if the Initial call failed
+            if (currentUserEmail) {
+                markMessagesRead();
+            }
+
+            setMessages(fetchedMessages);
         } catch (err) {
             console.error("Error fetching messages:", err);
         }
     };
+
+    // Dedicated effect to trigger read as soon as we enter the chat
+    useEffect(() => {
+        if (claimId && currentUserEmail) {
+            markMessagesRead();
+        }
+    }, [claimId, currentUserEmail]);
 
     const markMessagesRead = async () => {
         if (!claimId || !currentUserEmail) return;
@@ -107,8 +230,10 @@ export default function ChatPage() {
                 claimId,
                 userEmail: currentUserEmail
             });
-            // Refresh list to update badge
-            // fetchChatList(currentUserEmail); // Optional: instant update
+
+            // Sync UI immediately after marking read
+            fetchChatList(currentUserEmail);
+            window.dispatchEvent(new Event('chat-read'));
         } catch (err) {
             console.error("Error marking read:", err);
         }
@@ -125,7 +250,14 @@ export default function ChatPage() {
                 content: newMessage,
             });
             setNewMessage("");
-            fetchMessages();
+
+            // Fetch immediately to show the new message
+            const res = await axios.get(`/api/chat/${claimId}`);
+            setMessages(res.data);
+
+            // Force scroll to bottom when sending
+            setTimeout(scrollToBottom, 100);
+
             fetchChatList(currentUserEmail); // Update list preview
         } catch (err) {
             console.error("Error sending message:", err);
@@ -137,6 +269,13 @@ export default function ChatPage() {
         const title = chat.itemId?.title || "";
         return name.toLowerCase().includes(searchChat.toLowerCase()) || title.toLowerCase().includes(searchChat.toLowerCase());
     });
+
+    // Calculate total unread count excluding the currently active chat
+    // This gives instant feedback to the user
+    const totalUnreadCount = chats.reduce((acc, chat) => {
+        if (chat._id === claimId) return acc; // Don't count active chat
+        return acc + (chat.unreadCount || 0);
+    }, 0);
 
     if (!currentUserEmail) return null;
 
@@ -154,11 +293,16 @@ export default function ChatPage() {
                         <ArrowLeft size={20} />
                     </button>
 
-                    <div className="flex items-center gap-2 cursor-pointer" onClick={() => router.push('/chat')}>
+                    <div className="flex items-center gap-2 cursor-pointer flex-1" onClick={() => router.push('/chat')}>
                         <div className="w-8 h-8 bg-yellow-400 rounded-lg flex items-center justify-center text-black font-bold">
                             F!
                         </div>
                         <h2 className="font-bold text-lg tracking-tight">Found<span className="text-yellow-400">It!</span> Chat</h2>
+                        {totalUnreadCount > 0 && (
+                            <span className="ml-2 bg-yellow-400 text-black text-xs font-bold px-2 py-0.5 rounded-full">
+                                {totalUnreadCount}
+                            </span>
+                        )}
                     </div>
                 </div>
 
@@ -183,6 +327,9 @@ export default function ChatPage() {
                         const otherName = isFinder ? chat.claimantName : "Finder";
                         const isActive = chat._id === claimId;
 
+                        // Optimistically hide unread badge if this is the active chat
+                        const displayUnreadCount = isActive ? 0 : chat.unreadCount;
+
                         return (
                             <div
                                 key={chat._id}
@@ -202,7 +349,7 @@ export default function ChatPage() {
                                     <div className="flex justify-between items-baseline mb-1">
                                         <h4 className={`font-medium truncate ${isActive ? 'text-white' : 'text-gray-200'}`}>{otherName}</h4>
                                         {chat.lastMessage && (
-                                            <span className={`text-[11px] ${chat.unreadCount > 0 ? 'text-yellow-400 font-bold' : 'text-gray-500'}`}>
+                                            <span className={`text-[11px] ${displayUnreadCount > 0 ? 'text-yellow-400 font-bold' : 'text-gray-500'}`}>
                                                 {new Date(chat.lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </span>
                                         )}
@@ -211,9 +358,9 @@ export default function ChatPage() {
                                         <p className="text-gray-500 text-sm truncate pr-2">
                                             {chat.lastMessage?.content || "No messages yet"}
                                         </p>
-                                        {chat.unreadCount > 0 && (
+                                        {displayUnreadCount > 0 && (
                                             <span className="bg-yellow-400 text-black text-xs font-bold px-1.5 h-5 min-w-[20px] rounded-full flex items-center justify-center">
-                                                {chat.unreadCount}
+                                                {displayUnreadCount}
                                             </span>
                                         )}
                                     </div>
@@ -270,19 +417,29 @@ export default function ChatPage() {
                         {messages.map((msg) => {
                             const isMe = msg.senderEmail === currentUserEmail;
                             return (
-                                <div key={msg._id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-                                    <div className={`max-w-[75%] md:max-w-[60%] px-4 py-2.5 rounded-2xl text-sm shadow-md relative group ${isMe ? 'bg-yellow-400 text-black rounded-tr-none font-medium' : 'bg-neutral-800 text-gray-100 rounded-tl-none border border-white/5'
-                                        }`}>
-                                        <div className="flex flex-col">
-                                            <span className="leading-relaxed">{msg.content}</span>
-                                            <div className="flex items-center justify-end gap-1 mt-1 select-none opacity-70">
-                                                <span className={`text-[10px] uppercase font-bold tracking-wider`}>
-                                                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </span>
+                                <React.Fragment key={msg._id}>
+                                    {/* Unread Divider */}
+                                    {msg._id === unreadDividerId && (
+                                        <div className="flex justify-center my-4 animate-in fade-in zoom-in duration-300">
+                                            <div className="bg-neutral-800 text-yellow-400 text-xs px-4 py-1.5 rounded-full border border-yellow-400/20 shadow-sm font-medium">
+                                                {unreadSessionCount} Unread Message{unreadSessionCount !== 1 ? 's' : ''}
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+                                        <div className={`max-w-[75%] md:max-w-[60%] px-4 py-2.5 rounded-2xl text-sm shadow-md relative group ${isMe ? 'bg-yellow-400 text-black rounded-tr-none font-medium' : 'bg-neutral-800 text-gray-100 rounded-tl-none border border-white/5'
+                                            }`}>
+                                            <div className="flex flex-col">
+                                                <span className="leading-relaxed">{msg.content}</span>
+                                                <div className="flex items-center justify-end gap-1 mt-1 select-none opacity-70">
+                                                    <span className={`text-[10px] uppercase font-bold tracking-wider`}>
+                                                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
+                                </React.Fragment>
                             );
                         })}
                         <div ref={messagesEndRef} />
@@ -320,6 +477,16 @@ export default function ChatPage() {
                     <p className="text-gray-500 max-w-sm leading-relaxed mb-8">
                         Select a conversation from the sidebar to start chatting. Coordinate meetups safely and recover your lost items.
                     </p>
+
+                    <div className="bg-yellow-400/5 border border-yellow-400/20 p-4 rounded-xl max-w-md mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
+                        <div className="flex items-center justify-center gap-2 text-yellow-400 font-bold mb-2">
+                            <AlertTriangle size={20} />
+                            <span>Safety Tip</span>
+                        </div>
+                        <p className="text-gray-400 text-sm leading-relaxed">
+                            For your safety, <span className="text-gray-200 font-semibold">never share sensitive personal information</span> like passwords, bank details, or home addresses. Always meet in public places for item exchanges.
+                        </p>
+                    </div>
                     <button
                         onClick={() => router.push('/dashboard')}
                         className="px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl border border-white/10 transition flex items-center gap-2 font-medium"
@@ -328,7 +495,8 @@ export default function ChatPage() {
                         Back to Dashboard
                     </button>
                 </div>
-            )}
-        </div>
+            )
+            }
+        </div >
     );
 }
