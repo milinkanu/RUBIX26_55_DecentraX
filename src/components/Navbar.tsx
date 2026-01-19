@@ -207,6 +207,11 @@ function NavbarContent() {
 
   const isActiveLink = (path: string) => pathname === path;
 
+  // Hide Navbar on chat pages for full-screen experience
+  if (pathname?.startsWith("/chat")) {
+    return null;
+  }
+
   return (
     <nav className="relative z-[999]">
       <div className="bg-black/90 p-4 sticky top-0 flex justify-between items-center border-b border-white/10 backdrop-blur-md">
@@ -255,50 +260,16 @@ function NavbarContent() {
               <div className="flex gap-4">
                 {/* Chat Icon */}
                 <div className="relative">
-                  <MessageCircle
-                    className="text-yellow-400 h-6 w-6 cursor-pointer"
-                    onClick={() => {
-                      setShowChatDropdown(prev => !prev);
-                      setShowDropdown(false);
-                      if (!showChatDropdown && user) fetchChatList(user.email);
-                    }}
-                  />
-                  {chatList.length > 0 && (
-                    <span className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs rounded-full px-1.5">
-                      {chatList.length}
-                    </span>
-                  )}
-
-                  {showChatDropdown && (
-                    <div className="absolute right-0 mt-3 bg-neutral-900/95 text-white p-3 rounded-lg shadow-xl w-72 border border-white/10 z-50">
-                      <h4 className="text-gray-200 mb-2 font-semibold text-sm">Active Chats</h4>
-                      {chatList.length === 0 ? (
-                        <p className="text-gray-400 text-xs text-center py-2">No active chats</p>
-                      ) : (
-                        chatList.map(chat => {
-                          const isFinder = user?.email === chat.finderEmail;
-                          const otherParty = isFinder ? chat.claimantName : "Finder";
-
-                          return (
-                            <Link
-                              key={chat._id}
-                              href={`/chat/${chat._id}`}
-                              className="block border-b border-white/10 pb-2 mb-2 hover:bg-white/5 rounded-md p-2 transition"
-                              onClick={() => setShowChatDropdown(false)}
-                            >
-                              <div className="flex justify-between items-center">
-                                <span className="font-semibold text-yellow-400 text-sm">{otherParty}</span>
-                                <span className="text-xs text-gray-500">Active</span>
-                              </div>
-                              <p className="text-xs text-gray-400 truncate mt-1">
-                                Item: {chat.itemId?.title || "Unknown"}
-                              </p>
-                            </Link>
-                          )
-                        })
-                      )}
-                    </div>
-                  )}
+                  <Link href="/chat">
+                    <MessageCircle
+                      className="text-yellow-400 h-6 w-6 cursor-pointer hover:text-yellow-300 transition-colors"
+                    />
+                    {chatList.reduce((acc, chat: any) => acc + (chat.unreadCount || 0), 0) > 0 && (
+                      <span className="absolute -top-2 -right-2 bg-yellow-400 text-black text-xs rounded-full px-1.5 font-bold border border-black">
+                        {chatList.reduce((acc, chat: any) => acc + (chat.unreadCount || 0), 0)}
+                      </span>
+                    )}
+                  </Link>
                 </div>
 
                 {/* Notification Icon */}

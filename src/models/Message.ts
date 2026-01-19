@@ -15,6 +15,7 @@ const MessageSchema: Schema<IMessage> = new Schema({
     },
     senderEmail: { type: String, required: true },
     content: { type: String, required: true },
+    isRead: { type: Boolean, default: false },
 }, { timestamps: true });
 
 const Message: Model<IMessage> = mongoose.models.Message || mongoose.model<IMessage>("Message", MessageSchema);

@@ -5,8 +5,9 @@ import User from "@/models/User";
 import Item from "@/models/Item"; // Ensure Item is registered
 
 export async function GET(req: NextRequest) {
-    await connectDB();
     try {
+        await connectDB();
+
         const searchParams = req.nextUrl.searchParams;
         const email = searchParams.get("email");
 
@@ -37,6 +38,7 @@ export async function GET(req: NextRequest) {
 
         return NextResponse.json(validNotifications);
     } catch (err: any) {
-        return NextResponse.json({ success: false, message: err.message }, { status: 500 });
+        console.error("Error in api/notifications:", err);
+        return NextResponse.json({ success: false, message: "Internal Server Error", error: err.message }, { status: 500 });
     }
 }

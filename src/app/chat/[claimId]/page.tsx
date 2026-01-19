@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { useParams, useRouter } from "next/navigation";
-import { Send, User as UserIcon, MapPin, ArrowLeft } from "lucide-react";
+import { Send, User as UserIcon, MapPin, ArrowLeft, Search, Paperclip, MoreVertical, Phone } from "lucide-react";
 import Image from "next/image";
 
 interface Message {
@@ -11,37 +11,38 @@ interface Message {
     senderEmail: string;
     content: string;
     createdAt: string;
+    isRead: boolean;
 }
 
-interface Item {
+interface ChatListItem {
     _id: string;
-    title: string;
-    description: string;
-    file?: string;
-    location?: { city: string; area: string };
-    verify: string;
-}
-
-interface Claim {
-    _id: string;
-    itemId: Item;
+    itemId: {
+        _id: string;
+        title: string;
+        file?: string;
+    };
+    finderEmail: string;
     claimantName: string;
     claimantEmail: string;
-    finderEmail: string;
-    status: string;
+    lastMessage?: {
+        content: string;
+        createdAt: string;
+    };
+    unreadCount: number;
 }
 
 export default function ChatPage() {
     const { claimId } = useParams();
     const router = useRouter();
     const [messages, setMessages] = useState<Message[]>([]);
+    const [chats, setChats] = useState<ChatListItem[]>([]);
     const [newMessage, setNewMessage] = useState("");
-    const [claim, setClaim] = useState<Claim | null>(null);
     const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+    const [currentChat, setCurrentChat] = useState<ChatListItem | null>(null);
+    const [searchChat, setSearchChat] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        // Get user from local storage
         const storedUser = localStorage.getItem("user");
         if (!storedUser) {
             router.push("/login");
@@ -50,10 +51,25 @@ export default function ChatPage() {
         const user = JSON.parse(storedUser);
         setCurrentUserEmail(user.email);
 
-        if (claimId) {
-            fetchClaimDetails();
+        fetchChatList(user.email);
+        const interval = setInterval(() => fetchChatList(user.email), 5000);
+        return () => clearInterval(interval);
+    }, []);
+
+    useEffect(() => {
+        if (claimId && currentUserEmail) {
+            const active = chats.find(c => c._id === claimId);
+            if (active) setCurrentChat(active);
             fetchMessages();
-            const interval = setInterval(fetchMessages, 3000); // Poll every 3 seconds
+            markMessagesRead();
+        }
+    }, [claimId, chats, currentUserEmail]);
+
+    useEffect(() => {
+        if (claimId) {
+            const interval = setInterval(() => {
+                fetchMessages();
+            }, 3000);
             return () => clearInterval(interval);
         }
     }, [claimId]);
@@ -66,23 +82,35 @@ export default function ChatPage() {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
-    const fetchClaimDetails = async () => {
+    const fetchChatList = async (email: string) => {
         try {
-            const res = await axios.get(`/api/claim/${claimId}`);
-            setClaim(res.data);
+            const res = await axios.get(`/api/chat/list/${email}`);
+            setChats(res.data);
         } catch (err) {
-            console.error("Error fetching claim:", err);
+            console.error("Error fetching chat list:", err);
         }
     };
 
     const fetchMessages = async () => {
         try {
             const res = await axios.get(`/api/chat/${claimId}`);
-            // Only update if length changed to avoid flickering if we were doing more complex sync
-            // But for simple replacement it's fine
             setMessages(res.data);
         } catch (err) {
             console.error("Error fetching messages:", err);
+        }
+    };
+
+    const markMessagesRead = async () => {
+        if (!claimId || !currentUserEmail) return;
+        try {
+            await axios.patch("/api/chat/mark-read", {
+                claimId,
+                userEmail: currentUserEmail
+            });
+            // Refresh list to update badge
+            // fetchChatList(currentUserEmail); // Optional: instant update
+        } catch (err) {
+            console.error("Error marking read:", err);
         }
     };
 
@@ -98,136 +126,209 @@ export default function ChatPage() {
             });
             setNewMessage("");
             fetchMessages();
+            fetchChatList(currentUserEmail); // Update list preview
         } catch (err) {
             console.error("Error sending message:", err);
         }
     };
 
-    if (!claim || !currentUserEmail) {
-        return (
-            <div className="min-h-screen bg-black text-white flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-yellow-400"></div>
-            </div>
-        );
-    }
+    const filteredChats = chats.filter(chat => {
+        const name = currentUserEmail === chat.finderEmail ? chat.claimantName : "Finder"; // Simplification
+        const title = chat.itemId?.title || "";
+        return name.toLowerCase().includes(searchChat.toLowerCase()) || title.toLowerCase().includes(searchChat.toLowerCase());
+    });
 
-    const isFinder = currentUserEmail === claim.finderEmail;
-    const otherPartyName = isFinder ? claim.claimantName : "Finder";
-    const itemTitle = claim.itemId?.title || "Unknown Item";
+    if (!currentUserEmail) return null;
 
     return (
-        <div className="min-h-screen bg-black text-white flex flex-col pt-20">
-            <div className="max-w-4xl mx-auto w-full flex-1 flex flex-col md:flex-row gap-6 p-4">
-
-                {/* Sidebar / Item Info */}
-                <div className="w-full md:w-1/3 bg-neutral-900 border border-white/10 rounded-xl p-4 h-fit">
+        <div className="h-screen bg-black text-white flex overflow-hidden">
+            {/* Left Sidebar (Chat List) */}
+            <div className={`w-full md:w-[400px] border-r border-white/10 flex flex-col bg-black ${claimId ? 'hidden md:flex' : 'flex'}`}>
+                {/* Sidebar Header */}
+                <div className="h-16 bg-neutral-900 px-4 flex items-center gap-3 border-b border-white/10">
                     <button
-                        onClick={() => router.back()}
-                        className="flex items-center gap-2 text-gray-400 hover:text-white mb-4 transition"
+                        onClick={() => router.push('/dashboard')}
+                        className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition"
+                        title="Back to Dashboard"
                     >
-                        <ArrowLeft size={16} /> Back
+                        <ArrowLeft size={20} />
                     </button>
 
-                    <h2 className="text-xl font-bold text-yellow-400 mb-4">Item Details</h2>
-
-                    {claim.itemId?.file && (
-                        <div className="relative w-full h-48 mb-4 rounded-lg overflow-hidden border border-white/10">
-                            <Image
-                                src={claim.itemId.file}
-                                alt={claim.itemId.title}
-                                fill
-                                className="object-cover"
-                            />
+                    <div className="flex items-center gap-2 cursor-pointer" onClick={() => router.push('/chat')}>
+                        <div className="w-8 h-8 bg-yellow-400 rounded-lg flex items-center justify-center text-black font-bold">
+                            F!
                         </div>
-                    )}
-
-                    <h3 className="text-lg font-semibold">{claim.itemId?.title}</h3>
-                    <p className="text-gray-400 text-sm mb-4">{claim.itemId?.description}</p>
-
-                    {claim.itemId?.location && (
-                        <div className="flex items-center gap-2 text-gray-400 text-sm mb-4">
-                            <MapPin size={14} className="text-yellow-400" />
-                            {claim.itemId.location.city}, {claim.itemId.location.area}
-                        </div>
-                    )}
-
-                    <div className="border-t border-white/10 pt-4 mt-4">
-                        <h4 className="text-sm font-semibold text-gray-300 mb-2">Claim Status</h4>
-                        <span className={`px-2 py-1 rounded text-xs font-bold ${claim.status === 'approved' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'
-                            }`}>
-                            {claim.status.toUpperCase()}
-                        </span>
+                        <h2 className="font-bold text-lg tracking-tight">Found<span className="text-yellow-400">It!</span> Chat</h2>
                     </div>
                 </div>
 
-                {/* Chat Area */}
-                <div className="flex-1 bg-neutral-900 border border-white/10 rounded-xl flex flex-col h-[600px]">
-                    {/* Header */}
-                    <div className="p-4 border-b border-white/10 bg-neutral-800/50 rounded-t-xl flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-yellow-400/20 p-2 rounded-full">
-                                <UserIcon className="text-yellow-400 h-5 w-5" />
+                {/* Sidebar Search */}
+                <div className="px-3 py-3 border-b border-white/10 bg-black">
+                    <div className="relative">
+                        <input
+                            type="text"
+                            placeholder="Search or start new chat"
+                            value={searchChat}
+                            onChange={(e) => setSearchChat(e.target.value)}
+                            className="w-full bg-neutral-900 text-gray-200 text-sm rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-yellow-400 border border-white/5 placeholder-gray-600 transition-all"
+                        />
+                        <Search className="absolute left-3 top-3 text-gray-500 h-4 w-4" />
+                    </div>
+                </div>
+
+                {/* Chat List Items */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar bg-black">
+                    {filteredChats.map((chat) => {
+                        const isFinder = currentUserEmail === chat.finderEmail;
+                        const otherName = isFinder ? chat.claimantName : "Finder";
+                        const isActive = chat._id === claimId;
+
+                        return (
+                            <div
+                                key={chat._id}
+                                onClick={() => router.push(`/chat/${chat._id}`)}
+                                className={`flex items-center gap-3 p-3 cursor-pointer transition-all border-b border-white/5 ${isActive ? 'bg-white/10 border-l-4 border-l-yellow-400' : 'hover:bg-white/5 border-l-4 border-l-transparent'}`}
+                            >
+                                <div className="relative">
+                                    <div className="w-12 h-12 bg-neutral-800 rounded-full flex items-center justify-center overflow-hidden border border-white/10">
+                                        {chat.itemId?.file ? (
+                                            <Image src={chat.itemId.file} alt="Item" width={48} height={48} className="object-cover w-full h-full" />
+                                        ) : (
+                                            <UserIcon size={24} className="text-gray-400" />
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex justify-between items-baseline mb-1">
+                                        <h4 className={`font-medium truncate ${isActive ? 'text-white' : 'text-gray-200'}`}>{otherName}</h4>
+                                        {chat.lastMessage && (
+                                            <span className={`text-[11px] ${chat.unreadCount > 0 ? 'text-yellow-400 font-bold' : 'text-gray-500'}`}>
+                                                {new Date(chat.lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <p className="text-gray-500 text-sm truncate pr-2">
+                                            {chat.lastMessage?.content || "No messages yet"}
+                                        </p>
+                                        {chat.unreadCount > 0 && (
+                                            <span className="bg-yellow-400 text-black text-xs font-bold px-1.5 h-5 min-w-[20px] rounded-full flex items-center justify-center">
+                                                {chat.unreadCount}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Right Side (Conversation) */}
+            {claimId ? (
+                <div className="flex-1 flex flex-col bg-black relative">
+                    {/* Chat Header */}
+                    <div className="h-16 bg-neutral-900 px-4 flex items-center justify-between border-b border-white/10">
+                        <div className="flex items-center gap-4">
+                            <button onClick={() => router.push('/chat')} className="md:hidden text-gray-400">
+                                <ArrowLeft />
+                            </button>
+                            <div className="w-10 h-10 bg-neutral-800 rounded-full flex items-center justify-center overflow-hidden border border-white/10">
+                                {currentChat?.itemId?.file ? (
+                                    <Image src={currentChat.itemId.file} alt="Item" width={40} height={40} className="object-cover w-full h-full" />
+                                ) : (
+                                    <UserIcon size={20} className="text-gray-400" />
+                                )}
                             </div>
                             <div>
-                                <h3 className="font-bold">{otherPartyName}</h3>
-                                <p className="text-xs text-green-400">Online</p>
+                                <h3 className="text-white font-bold text-lg">
+                                    {currentUserEmail === currentChat?.finderEmail ? currentChat?.claimantName : "Finder"}
+                                </h3>
+                                <div className="flex items-center gap-1.5">
+                                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                                    <p className="text-xs text-gray-400">
+                                        Active • Item: <span className="text-yellow-400">{currentChat?.itemId?.title}</span>
+                                    </p>
+                                </div>
                             </div>
                         </div>
-                        {claim.status !== 'approved' && (
-                            <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded">
-                                Claim not active
-                            </span>
-                        )}
+                        <div className="flex gap-4 text-gray-400 items-center">
+                            <Search size={20} className="hover:text-yellow-400 transition cursor-pointer hidden sm:block" />
+                            <MoreVertical size={20} className="hover:text-yellow-400 transition cursor-pointer" />
+                            <button
+                                onClick={() => router.push('/chat')}
+                                className="bg-neutral-800 hover:bg-neutral-700 text-gray-300 p-2 rounded-lg transition ml-2 border border-white/5"
+                                title="Close Chat"
+                            >
+                                <span className="text-xs font-bold">Close</span>
+                            </button>
+                        </div>
                     </div>
 
-                    {/* Messages */}
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-                        {messages.length === 0 ? (
-                            <div className="h-full flex flex-col items-center justify-center text-gray-500 text-sm">
-                                <p>Start the conversation to coordinate return.</p>
-                                <p>Do not share sensitive financial info.</p>
-                            </div>
-                        ) : (
-                            messages.map((msg) => {
-                                const isMe = msg.senderEmail === currentUserEmail;
-                                return (
-                                    <div key={msg._id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                        <div className={`max-w-[75%] px-4 py-2 rounded-lg text-sm ${isMe
-                                                ? 'bg-yellow-400 text-black rounded-tr-none font-medium'
-                                                : 'bg-white/10 text-white rounded-tl-none'
-                                            }`}>
-                                            <p>{msg.content}</p>
-                                            <span className={`text-[10px] block mt-1 ${isMe ? 'text-black/60' : 'text-gray-400'}`}>
-                                                {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </span>
+                    {/* Messages Area */}
+                    <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-3 bg-black custom-scrollbar">
+                        {messages.map((msg) => {
+                            const isMe = msg.senderEmail === currentUserEmail;
+                            return (
+                                <div key={msg._id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+                                    <div className={`max-w-[75%] md:max-w-[60%] px-4 py-2.5 rounded-2xl text-sm shadow-md relative group ${isMe ? 'bg-yellow-400 text-black rounded-tr-none font-medium' : 'bg-neutral-800 text-gray-100 rounded-tl-none border border-white/5'
+                                        }`}>
+                                        <div className="flex flex-col">
+                                            <span className="leading-relaxed">{msg.content}</span>
+                                            <div className="flex items-center justify-end gap-1 mt-1 select-none opacity-70">
+                                                <span className={`text-[10px] uppercase font-bold tracking-wider`}>
+                                                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
-                                )
-                            })
-                        )}
+                                </div>
+                            );
+                        })}
                         <div ref={messagesEndRef} />
                     </div>
 
-                    {/* Input */}
-                    <form onSubmit={handleSendMessage} className="p-4 border-t border-white/10 bg-neutral-800/30 rounded-b-xl flex gap-3">
-                        <input
-                            type="text"
-                            value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
-                            placeholder="Type a message..."
-                            className="flex-1 bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-yellow-400 transition"
-                        />
-                        <button
-                            type="submit"
-                            disabled={!newMessage.trim()}
-                            className="bg-yellow-400 text-black p-2 rounded-lg hover:bg-yellow-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <Send size={20} />
+                    {/* Input Area */}
+                    <div className="bg-neutral-900 px-4 py-4 flex items-end gap-3 z-10 border-t border-white/10">
+                        <button className="text-gray-400 p-2 hover:bg-neutral-800 rounded-full transition mb-0.5">
+                            <Paperclip size={22} />
                         </button>
-                    </form>
+                        <form onSubmit={handleSendMessage} className="flex-1 flex items-end gap-3 bg-neutral-800 rounded-xl px-4 py-2 border border-white/5 focus-within:border-yellow-400/50 transition-colors">
+                            <input
+                                type="text"
+                                value={newMessage}
+                                onChange={(e) => setNewMessage(e.target.value)}
+                                placeholder="Type a message..."
+                                className="w-full bg-transparent text-white focus:outline-none placeholder-gray-500 min-h-[24px] max-h-32 py-1"
+                            />
+                            <button
+                                type="submit"
+                                disabled={!newMessage.trim()}
+                                className="text-gray-400 hover:text-yellow-400 transition disabled:opacity-30 disabled:hover:text-gray-400"
+                            >
+                                <Send size={20} className={newMessage.trim() ? "text-yellow-400" : ""} />
+                            </button>
+                        </form>
+                    </div>
                 </div>
-
-            </div>
+            ) : (
+                <div className="hidden md:flex flex-1 items-center justify-center bg-black flex-col text-center p-10 select-none">
+                    <div className="w-24 h-24 bg-neutral-900 rounded-full flex items-center justify-center mb-6 border border-white/10 animate-pulse">
+                        <div className="w-12 h-12 border-2 border-yellow-400 rounded-lg transform rotate-45"></div>
+                    </div>
+                    <h2 className="text-white text-3xl font-bold mb-3 tracking-tight">FoundIt! <span className="text-yellow-400">Chats</span></h2>
+                    <p className="text-gray-500 max-w-sm leading-relaxed mb-8">
+                        Select a conversation from the sidebar to start chatting. Coordinate meetups safely and recover your lost items.
+                    </p>
+                    <button
+                        onClick={() => router.push('/dashboard')}
+                        className="px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl border border-white/10 transition flex items-center gap-2 font-medium"
+                    >
+                        <ArrowLeft size={18} />
+                        Back to Dashboard
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
