@@ -21,6 +21,7 @@ interface Item {
     name: string;
     email?: string;
     verify: string;
+    questions?: { question: string; answer: string }[];
     location: {
         city: string;
         area: string;
@@ -54,6 +55,7 @@ export function FindItem() {
     const [selectedItem, setSelectedItem] = useState<Item | null>(null);
     const [showClaimForm, setShowClaimForm] = useState(false);
     const [answer, setAnswer] = useState("");
+    const [answers, setAnswers] = useState<{ question: string, answer: string }[]>([]);
     const [claims, setClaims] = useState<{ [key: string]: Claim }>({});
     const pollingRefs = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
@@ -129,7 +131,7 @@ export function FindItem() {
                     itemId: selectedItem._id,
                     claimantName: user?.name || "Anonymous User",
                     claimantEmail: user?.email || "anonymous@example.com",
-                    answer,
+                    answers: answers.length > 0 ? answers : [{ question: selectedItem.verify || "Legacy Question", answer }],
                 }
             );
 
@@ -442,21 +444,49 @@ export function FindItem() {
                                             )}
 
                                             {showClaimForm && !claim?.submitted && (
-                                                <div className="mt-4 space-y-2 bg-white/5 p-4 rounded-lg">
+                                                <div className="mt-4 space-y-4 bg-white/5 p-4 rounded-lg">
                                                     {selectedItem.type === 'Found' ? (
                                                         <>
-                                                            <p className="text-gray-300 text-sm">
-                                                                Verification Question:{" "}
-                                                                <span className="font-semibold text-white">
-                                                                    {selectedItem.verify}
-                                                                </span>
+                                                            <p className="text-gray-300 text-sm font-semibold border-b border-gray-700 pb-2">
+                                                                Answer verification questions to prove ownership:
                                                             </p>
-                                                            <input
-                                                                value={answer}
-                                                                onChange={(e) => setAnswer(e.target.value)}
-                                                                className="w-full p-2 bg-gray-900 border border-gray-700 rounded text-white focus:border-yellow-400 focus:outline-none"
-                                                                placeholder="Your answer..."
-                                                            />
+
+                                                            {/* Legacy support: If old 'verify' field exists but no 'questions', show that */}
+                                                            {(!selectedItem.questions || selectedItem.questions.length === 0) && selectedItem.verify && (
+                                                                <div>
+                                                                    <p className="text-gray-400 text-xs mb-1">{selectedItem.verify}</p>
+                                                                    <input
+                                                                        value={answer}
+                                                                        onChange={(e) => setAnswer(e.target.value)}
+                                                                        className="w-full p-2 bg-gray-900 border border-gray-700 rounded text-white focus:border-yellow-400 focus:outline-none"
+                                                                        placeholder="Your answer..."
+                                                                    />
+                                                                </div>
+                                                            )}
+
+                                                            {/* New Multi-Question Support */}
+                                                            {selectedItem.questions?.map((q: any, idx: number) => (
+                                                                <div key={idx}>
+                                                                    <p className="text-gray-400 text-xs mb-1">
+                                                                        Q{idx + 1}: {q.question}
+                                                                    </p>
+                                                                    <input
+                                                                        onChange={(e) => {
+                                                                            const currentAnswers = [...(answers || [])];
+                                                                            // Ensure we have an entry for this index
+                                                                            const existingIndex = currentAnswers.findIndex(a => a.question === q.question);
+                                                                            if (existingIndex >= 0) {
+                                                                                currentAnswers[existingIndex].answer = e.target.value;
+                                                                            } else {
+                                                                                currentAnswers.push({ question: q.question, answer: e.target.value });
+                                                                            }
+                                                                            setAnswers(currentAnswers);
+                                                                        }}
+                                                                        className="w-full p-2 bg-gray-900 border border-gray-700 rounded text-white focus:border-yellow-400 focus:outline-none text-sm"
+                                                                        placeholder="Your answer..."
+                                                                    />
+                                                                </div>
+                                                            ))}
                                                         </>
                                                     ) : (
                                                         <p className="text-gray-300 text-sm">
@@ -468,7 +498,7 @@ export function FindItem() {
                                                         onClick={handleSubmitAnswer}
                                                         className="w-full bg-yellow-400 text-black py-2 rounded font-semibold hover:bg-yellow-500 transition"
                                                     >
-                                                        {selectedItem.type === 'Found' ? "Submit Answer" : "Send Contact Info"}
+                                                        {selectedItem.type === 'Found' ? "Submit Proof" : "Send Contact Info"}
                                                     </button>
                                                 </div>
                                             )}

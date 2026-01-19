@@ -26,6 +26,7 @@ export function PostItem() {
         area: "",
         landmark: "",
         type: "Found", // Default
+        questions: [] as { question: string; answer: string }[],
     });
 
     const [file, setFile] = useState<File | null>(null);
@@ -59,6 +60,7 @@ export function PostItem() {
                 area: item.location.area,
                 landmark: item.location.landmark || "",
                 type: item.type || "Found",
+                questions: item.questions || [],
             });
             setFileUrl(item.file);
         } catch (err) {
@@ -144,6 +146,7 @@ export function PostItem() {
                 setFormData({
                     phone: "", title: "", description: "", verify: "",
                     category: "", city: "", area: "", landmark: "", type: "Found",
+                    questions: [],
                 });
                 setFile(null);
                 setFileUrl("");
@@ -298,17 +301,97 @@ export function PostItem() {
                         </div>
 
                         {formData.type === "Found" && (
-                            <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-2">Verification Question *</label>
-                                <input
-                                    type="text"
-                                    name="verify"
-                                    placeholder="e.g. What is the color of the case?"
-                                    value={formData.verify}
-                                    onChange={handleChange}
-                                    className="w-full p-3 bg-black/50 border border-gray-800 rounded-xl text-white focus:border-yellow-400 transition-all"
-                                />
-                                <p className="text-[10px] text-gray-500 mt-1">This will be asked to anyone trying to claim the item.</p>
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center">
+                                    <label className="block text-sm font-medium text-gray-400">Verification Questions (Smart Verify) *</label>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const newQuestions = [...(formData.questions || []), { question: "", answer: "" }];
+                                            setFormData({ ...formData, questions: newQuestions });
+                                        }}
+                                        className="text-xs text-yellow-400 hover:text-yellow-300 font-bold"
+                                    >
+                                        + Add Question
+                                    </button>
+                                </div>
+
+                                {(!formData.questions || formData.questions.length === 0) && (
+                                    <div className="p-3 border border-yellow-400/20 bg-yellow-400/5 rounded-lg text-xs text-yellow-200">
+                                        Please add at least one hidden question (e.g., "What is the wallpaper?" or "Any scratches?") to verify the owner.
+                                    </div>
+                                )}
+
+                                {/* AI Suggested Questions */}
+                                <div className="flex flex-wrap gap-2 mb-2">
+                                    {(() => {
+                                        const suggestions: Record<string, string[]> = {
+                                            Mobile: ["What is the wallpaper image?", "What is the phone passcode (last 2 digits)?", "Any scratches on screen?", "What color is the back cover?"],
+                                            Wallet: ["Which bank cards are inside?", "Approximate cash amount?", "Name on the ID card?", "Brand of the wallet?"],
+                                            Keys: ["How many keys are there?", "Describe the keychain.", "Is there a car key?"],
+                                            Bag: ["What brand is the bag?", "List 3 items inside.", "Any specific keychain attached?"],
+                                            Documents: ["Name on the document?", "Document Number (last 4 digits)?"],
+                                            Electronics: ["Serial Number?", "Any accessories included?"],
+                                            Other: ["What is the specific color?", "Any distinguishing marks/scratches?", "When exactly was it lost?"]
+                                        };
+
+                                        const categorySuggestions = suggestions[formData.category] || suggestions["Other"];
+                                        const genericSuggestions = ["What is the exact location lost?", "Any stickers or engravings?"];
+
+                                        return [...categorySuggestions, ...genericSuggestions].map((s, i) => (
+                                            <button
+                                                key={i}
+                                                type="button"
+                                                onClick={() => {
+                                                    const newQuestions = [...(formData.questions || []), { question: s, answer: "" }];
+                                                    setFormData({ ...formData, questions: newQuestions });
+                                                }}
+                                                className="text-[10px] bg-gray-800 hover:bg-gray-700 text-gray-300 py-1 px-2 rounded-full border border-gray-700 transition-colors"
+                                            >
+                                                + {s}
+                                            </button>
+                                        ));
+                                    })()}
+                                </div>
+
+                                {formData.questions?.map((q, idx) => (
+                                    <div key={idx} className="flex gap-2 items-start bg-white/5 p-3 rounded-xl border border-white/10">
+                                        <div className="flex-1 space-y-2">
+                                            <input
+                                                type="text"
+                                                placeholder={`Question #${idx + 1}`}
+                                                value={q.question}
+                                                onChange={(e) => {
+                                                    const newQ = [...(formData.questions || [])];
+                                                    newQ[idx].question = e.target.value;
+                                                    setFormData({ ...formData, questions: newQ });
+                                                }}
+                                                className="w-full p-2 bg-black/50 border border-gray-700 rounded-lg text-sm text-white focus:border-yellow-400"
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="Expected Answer (Hidden from public)"
+                                                value={q.answer}
+                                                onChange={(e) => {
+                                                    const newQ = [...(formData.questions || [])];
+                                                    newQ[idx].answer = e.target.value;
+                                                    setFormData({ ...formData, questions: newQ });
+                                                }}
+                                                className="w-full p-2 bg-black/50 border border-gray-700 rounded-lg text-sm text-gray-300 focus:border-green-400"
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const newQ = formData.questions?.filter((_, i) => i !== idx);
+                                                setFormData({ ...formData, questions: newQ });
+                                            }}
+                                            className="text-gray-500 hover:text-red-400 p-2"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                ))}
                             </div>
                         )}
 
