@@ -1,0 +1,3 @@
+{
+  "/api/claim/notifications/[email]/route": "app/api/claim/notifications/[email]/route.js"
+}
