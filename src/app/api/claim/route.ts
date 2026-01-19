@@ -14,6 +14,12 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ message: "Item not found" }, { status: 404 });
         }
 
+        const existingClaim = await Claim.findOne({ itemId, claimantEmail });
+        if (existingClaim) {
+            return NextResponse.json({ message: "You have already claimed this item." }, { status: 400 });
+        }
+
+
         const newClaim = new Claim({
             itemId,
             finderEmail: item.email,

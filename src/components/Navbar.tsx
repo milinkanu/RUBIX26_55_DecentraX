@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { AlertTriangle, Bell, Menu, X } from "lucide-react";
+import { AlertTriangle, Bell, Menu, X, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import axios from "axios";
@@ -27,7 +27,9 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 export function Navbar() {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [notifications, setNotifications] = useState<Claim[]>([]);
+  const [chatList, setChatList] = useState<Claim[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showChatDropdown, setShowChatDropdown] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -42,7 +44,17 @@ export function Navbar() {
       const parsedUser = storedUser ? JSON.parse(storedUser) : null;
       setUser(parsedUser);
 
-      if (parsedUser) fetchNotifications(parsedUser.email);
+      if (parsedUser) {
+        fetchNotifications(parsedUser.email);
+        fetchChatList(parsedUser.email);
+
+        const interval = setInterval(() => {
+          fetchNotifications(parsedUser.email);
+          fetchChatList(parsedUser.email);
+        }, 5000);
+
+        return () => clearInterval(interval);
+      }
     }
   }, [pathname]);
 
@@ -53,6 +65,11 @@ export function Navbar() {
         { status }
       );
       setNotifications((prev) => prev.filter((claim) => claim._id !== claimId));
+
+      // If approved, refresh the chat list immediately
+      if (status === 'approved' && user?.email) {
+        fetchChatList(user.email);
+      }
     } catch (err) {
       console.error("Error updating claim status:", err);
     }
@@ -66,6 +83,17 @@ export function Navbar() {
       setNotifications(res.data);
     } catch (err) {
       console.error("Error fetching notifications:", err);
+    }
+  };
+
+  const fetchChatList = async (email: string) => {
+    try {
+      const res = await axios.get(
+        `${API_URL}/api/chat/list/${email}`
+      );
+      setChatList(res.data);
+    } catch (err) {
+      console.error("Error fetching chats:", err);
     }
   };
 
@@ -130,94 +158,150 @@ export function Navbar() {
         <div className="flex items-center gap-3 relative">
           {user && (
             <div className="relative" ref={dropdownRef}>
-              <Bell
-                className="text-yellow-400 h-6 w-6 cursor-pointer"
-                onClick={() => setShowDropdown((prev) => !prev)}
-              />
-              {notifications.length > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-1.5">
-                  {notifications.length}
-                </span>
-              )}
+              <div className="flex gap-4">
+                {/* Chat Icon */}
+                <div className="relative">
+                  <MessageCircle
+                    className="text-yellow-400 h-6 w-6 cursor-pointer"
+                    onClick={() => {
+                      setShowChatDropdown(prev => !prev);
+                      setShowDropdown(false);
+                      if (!showChatDropdown && user) fetchChatList(user.email);
+                    }}
+                  />
+                  {chatList.length > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs rounded-full px-1.5">
+                      {chatList.length}
+                    </span>
+                  )}
 
-              {showDropdown && (
-                <div className="absolute right-0 mt-3 bg-neutral-900/95 text-white p-3 rounded-lg shadow-xl w-72 border border-white/10">
-                  <h4 className="text-gray-200 mb-2 font-semibold text-sm">
-                    Notifications
-                  </h4>
+                  {showChatDropdown && (
+                    <div className="absolute right-0 mt-3 bg-neutral-900/95 text-white p-3 rounded-lg shadow-xl w-72 border border-white/10 z-50">
+                      <h4 className="text-gray-200 mb-2 font-semibold text-sm">Active Chats</h4>
+                      {chatList.length === 0 ? (
+                        <p className="text-gray-400 text-xs text-center py-2">No active chats</p>
+                      ) : (
+                        chatList.map(chat => {
+                          const isFinder = user?.email === chat.finderEmail;
+                          const otherParty = isFinder ? chat.claimantName : "Finder";
 
-                  {notifications.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center text-center py-4 text-gray-400 text-sm">
-                      <p>No new claim requests</p>
+                          return (
+                            <Link
+                              key={chat._id}
+                              href={`/chat/${chat._id}`}
+                              className="block border-b border-white/10 pb-2 mb-2 hover:bg-white/5 rounded-md p-2 transition"
+                              onClick={() => setShowChatDropdown(false)}
+                            >
+                              <div className="flex justify-between items-center">
+                                <span className="font-semibold text-yellow-400 text-sm">{otherParty}</span>
+                                <span className="text-xs text-gray-500">Active</span>
+                              </div>
+                              <p className="text-xs text-gray-400 truncate mt-1">
+                                Item: {chat.itemId?.title || "Unknown"}
+                              </p>
+                            </Link>
+                          )
+                        })
+                      )}
                     </div>
-                  ) : (
-                    notifications.map((claim) => {
-                      const isFinder = user?.email === claim.finderEmail;
-
-                      return (
-                        <div
-                          key={claim._id}
-                          className="text-sm border-b border-white/10 pb-2 mb-2 hover:bg-white/5 rounded-md p-2 transition"
-                        >
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <p className="font-semibold text-yellow-400 mb-1">
-                                {claim.status === 'approved' ? 'Active Chat' : 'New Claim Request'}
-                              </p>
-                              <p>
-                                <span className="text-gray-300">Item:</span>{" "}
-                                {claim.itemId?.title || "Item Deleted"}
-                              </p>
-                              <p>
-                                <span className="text-gray-300">{isFinder ? "Claimant" : "Finder"}:</span>{" "}
-                                {isFinder ? claim.claimantName : claim.finderEmail}
-                              </p>
-                              {claim.status === 'pending' && isFinder && (
-                                <p>
-                                  <span className="text-gray-300">Answer:</span>{" "}
-                                  {claim.answer}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-
-
-                          <div className="flex gap-2 mt-2">
-                            {claim.status === 'approved' ? (
-                              <Link
-                                href={`/chat/${claim._id}`}
-                                className="bg-yellow-400 text-black px-3 py-1.5 rounded text-xs font-bold hover:bg-yellow-500 transition w-full text-center block"
-                                onClick={() => setShowDropdown(false)}
-                              >
-                                Open Chat
-                              </Link>
-                            ) : (
-                              <>
-                                <button
-                                  onClick={() =>
-                                    handleClaimAction(claim._id, "approved")
-                                  }
-                                  className="bg-green-500/90 px-2 py-1 rounded text-white text-xs hover:bg-green-600 transition flex-1"
-                                >
-                                  Accept
-                                </button>
-                                <button
-                                  onClick={() =>
-                                    handleClaimAction(claim._id, "rejected")
-                                  }
-                                  className="bg-red-500/90 px-2 py-1 rounded text-white text-xs hover:bg-red-600 transition flex-1"
-                                >
-                                  Reject
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })
                   )}
                 </div>
-              )}
+
+                {/* Notification Icon */}
+                <div className="relative">
+                  <Bell
+                    className="text-yellow-400 h-6 w-6 cursor-pointer"
+                    onClick={() => {
+                      setShowDropdown(prev => !prev);
+                      setShowChatDropdown(false);
+                    }}
+                  />
+                  {notifications.length > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-1.5">
+                      {notifications.length}
+                    </span>
+                  )}
+
+                  {showDropdown && (
+                    <div className="absolute right-0 mt-3 bg-neutral-900/95 text-white p-3 rounded-lg shadow-xl w-72 border border-white/10 z-50">
+                      <h4 className="text-gray-200 mb-2 font-semibold text-sm">
+                        Notifications
+                      </h4>
+
+                      {notifications.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center text-center py-4 text-gray-400 text-sm">
+                          <p>No new claim requests</p>
+                        </div>
+                      ) : (
+                        notifications.map((claim) => {
+                          const isFinder = user?.email === claim.finderEmail;
+
+                          return (
+                            <div
+                              key={claim._id}
+                              className="text-sm border-b border-white/10 pb-2 mb-2 hover:bg-white/5 rounded-md p-2 transition"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="font-semibold text-yellow-400 mb-1">
+                                    {claim.status === 'approved' ? 'Active Chat' : 'New Claim Request'}
+                                  </p>
+                                  <p>
+                                    <span className="text-gray-300">Item:</span>{" "}
+                                    {claim.itemId?.title || "Item Deleted"}
+                                  </p>
+                                  <p>
+                                    <span className="text-gray-300">{isFinder ? "Claimant" : "Finder"}:</span>{" "}
+                                    {isFinder ? claim.claimantName : claim.finderEmail}
+                                  </p>
+                                  {claim.status === 'pending' && isFinder && (
+                                    <p>
+                                      <span className="text-gray-300">Answer:</span>{" "}
+                                      {claim.answer}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+
+                              <div className="flex gap-2 mt-2">
+                                {claim.status === 'approved' ? (
+                                  <Link
+                                    href={`/chat/${claim._id}`}
+                                    className="bg-yellow-400 text-black px-3 py-1.5 rounded text-xs font-bold hover:bg-yellow-500 transition w-full text-center block"
+                                    onClick={() => setShowDropdown(false)}
+                                  >
+                                    Open Chat
+                                  </Link>
+                                ) : (
+                                  <>
+                                    <button
+                                      onClick={() =>
+                                        handleClaimAction(claim._id, "approved")
+                                      }
+                                      className="bg-green-500/90 px-2 py-1 rounded text-white text-xs hover:bg-green-600 transition flex-1"
+                                    >
+                                      Accept
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        handleClaimAction(claim._id, "rejected")
+                                      }
+                                      className="bg-red-500/90 px-2 py-1 rounded text-white text-xs hover:bg-red-600 transition flex-1"
+                                    >
+                                      Reject
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
