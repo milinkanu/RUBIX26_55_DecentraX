@@ -227,8 +227,7 @@ function NavbarContent() {
           {[
             { path: "/", label: "Home" },
             { path: "/dashboard", label: "Dashboard" },
-            { path: "/find", label: "Find Item" },
-            { path: "/post", label: "Post Item" }
+            { path: "/find", label: "Find Item" }
           ].map((item) => (
             <Link
               key={item.path}
@@ -491,8 +490,7 @@ function NavbarContent() {
         {[
           { path: "/", label: "Home" },
           { path: "/dashboard", label: "Dashboard" },
-          { path: "/find", label: "Find Item" },
-          { path: "/post", label: "Post Item" }
+          { path: "/find", label: "Find Item" }
         ].map((item) => (
           <Link
             key={item.path}
