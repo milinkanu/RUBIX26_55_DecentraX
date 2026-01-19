@@ -51,7 +51,7 @@ export function PostItem() {
             !formData.phone ||
             !formData.title ||
             !formData.description ||
-            !formData.verify ||
+            (formData.type === "Found" && !formData.verify) || // Verify only required for Found items
             !formData.category ||
             !formData.city ||
             !formData.area ||
@@ -248,14 +248,16 @@ export function PostItem() {
                             className="w-full p-3 bg-black border border-gray-700 rounded-md text-white focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400"
                         />
 
-                        <input
-                            type="text"
-                            name="verify"
-                            placeholder="Verification Question (e.g. 'What is the wallpaper?')"
-                            value={formData.verify}
-                            onChange={handleChange}
-                            className="w-full p-3 bg-black border border-gray-700 rounded-md text-white focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400"
-                        />
+                        {formData.type === "Found" && (
+                            <input
+                                type="text"
+                                name="verify"
+                                placeholder="Verification Question (e.g. 'What is the wallpaper?')"
+                                value={formData.verify}
+                                onChange={handleChange}
+                                className="w-full p-3 bg-black border border-gray-700 rounded-md text-white focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400"
+                            />
+                        )}
 
                         {/* File Upload */}
                         <label
