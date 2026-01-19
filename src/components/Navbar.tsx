@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { AlertTriangle, Bell, Menu, X, MessageCircle, Search } from "lucide-react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import axios from "axios";
 
 interface User {
@@ -38,10 +38,39 @@ export function Navbar() {
   const pathname = usePathname();
 
   const [searchTerm, setSearchTerm] = useState("");
+  const searchParams = useSearchParams();
+  const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && searchTerm.trim()) {
-      router.push(`/find?search=${encodeURIComponent(searchTerm.trim())}`);
+  // Sync state with URL on mount/update
+  useEffect(() => {
+    const query = searchParams.get("search");
+    if (query) {
+      setSearchTerm(query);
+    } else {
+      setSearchTerm("");
+    }
+  }, [searchParams]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+
+    // Immediate search (no delay)
+    if (value.trim()) {
+      router.push(`/find?search=${encodeURIComponent(value.trim())}`);
+    } else {
+      router.push("/find");
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+      if (searchTerm.trim()) {
+        router.push(`/find?search=${encodeURIComponent(searchTerm.trim())}`);
+      } else {
+        router.push("/find");
+      }
     }
   };
 
@@ -174,8 +203,8 @@ export function Navbar() {
               type="text"
               placeholder="Search..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyDown={handleSearch}
+              onChange={handleSearchChange}
+              onKeyDown={handleKeyDown}
               className="bg-transparent border border-yellow-400 rounded-full py-1.5 px-4 pl-10 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-yellow-400 w-48 lg:w-64 transition-all"
             />
             <Search className="h-4 w-4 text-yellow-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
