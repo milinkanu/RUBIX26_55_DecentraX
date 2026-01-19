@@ -1,96 +1,77 @@
-# 🚨 TraceBack – Lost and Found Web App
+# 🔍 FoundIt! – Community Lost & Found Platform
 
-## 🔍 TraceBack – Your Ultimate Lost & Found Solution
+## 🧭 FoundIt! – Reuniting People With What They’ve Lost
 
-**TraceBack** is a modern **MERN stack** web application designed to reunite lost belongings with their rightful owners. Whether you’ve misplaced your phone in the cafeteria or lost a jacket in the library, TraceBack provides a simple, secure, and reliable way to recover lost items.
+**FoundIt!** is a centralized, community-driven Lost & Found web platform designed to help individuals recover misplaced belongings quickly and securely.
+Instead of scattered notices and endless scrolling, FoundIt! brings everything into one structured system powered by smart matching and location awareness.
 
-Users can report found items, search for lost belongings, submit claims with verification, and securely connect with the finder once a claim is approved.
-
+Users can report lost or found items, receive intelligent match suggestions, securely communicate, and verify ownership — all while maintaining privacy.
 ---
 
 ## 🔧 Tech Stack
 
 ### 🖥 Frontend
-- **React.js** – Dynamic and component-based UI
-- **Tailwind CSS** – Clean, responsive, and modern styling
-
+- Next.js – React framework with SSR & routing
+- TypeScript – Type safety and maintainability
+- Tailwind CSS – Utility-first, responsive UI (recommended)
 ### ⚙ Backend
-- **Node.js** – Scalable backend runtime
-- **Express.js** – RESTful API and routing
-- **MongoDB** – NoSQL database using Mongoose ODM
-
-### ☁ Cloud & Storage
+- PostgreSQL – Reliable relational database
+### ☁ Media Handling
 - **Cloudinary** – Image upload and management
-
 ### 🚀 Deployment
-- **Vercel** – Frontend hosting
-- **Render** – Backend deployment
+- **Vercel** 
 
 ---
 
-## 📸 Application Walkthrough
+### 📦 Installation
+1️⃣ Clone the Repository
+```
+git clone https://github.com/yourusername/foundit.git
+cd foundit
+```
+2️⃣ Install Dependencies
+```
+npm install
+# or
+yarn install
+```
+3️⃣ Set Up the Database
 
-### 🏠 Home Page
-The landing page where users can:
-- Search for lost items
-- Navigate to post a found item
+Ensure PostgreSQL is running and DATABASE_URL is correctly configured.
 
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/50bd6128-fff4-47fb-a55f-4810ebc19ec8" width="85%" alt="Home Page Screenshot" />
-</p>
-
----
-
-### 🔎 Find Lost Items
-Browse through items that have been found and reported by other users.
-
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/afc5cc1a-ca6d-4d17-b271-03ff57693254" width="85%" alt="Find Lost Items Screenshot" />
-</p>
-
----
-
-### ➕ Post Found Item
-Users can post a found item by:
-- Filling in item details
-- Adding a verification question
-- Uploading an image
-
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/7a202df3-0319-43f5-b9f3-1700d7b190ef" width="85%" alt="Post Found Item Screenshot" />
-</p>
-
----
-
-## 🔁 Claim & Approval Flow
-
-### 📤 Claim Sent
-Users can submit a claim by answering the verification question provided by the finder.
-
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/a791b096-bd21-4f3d-9247-8c2c775c7c06" width="90%" alt="Claim Sent Screenshot" />
-</p>
+Run migrations (if using Prisma or similar ORM):
+```
+npx prisma migrate dev
+```
+4️⃣ Start Development Server
+```
+npm run dev
+# or
+yarn dev
+```
+5️⃣ Open in Browser
+```
+Visit 👉 http://localhost:3000
+```
 
 ---
 
-### 🔔 Finder Notification
-The person who posted the found item receives a notification to review incoming claims.
+### ⚙ Environment Variables
 
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/b6440cbb-c4ab-4fa4-a099-c9da517c30d8" width="90%" alt="Finder Notification Screenshot" />
-</p>
+Create a .env.local file in the root directory and add the following:
+```
+# Database Connection
+DATABASE_URL="postgresql://user:password@localhost:5432/foundit_db"
 
----
+# Cloudinary Configuration
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME="your_cloud_name"
+CLOUDINARY_API_KEY="your_api_key"
+CLOUDINARY_API_SECRET="your_api_secret"
 
-### ✅ Claim Approved – Contact Reveal
-Once the finder approves the claim:
-- Contact details (phone/email) are revealed securely
-- Both parties can coordinate the return safely
-
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/7a7990d9-2335-4c15-8842-2180bfdda226" width="90%" alt="Claim Approved Screenshot" />
-</p>
-
+# Authentication (if enabled)
+NEXTAUTH_SECRET="your_secret_key"
+NEXTAUTH_URL="http://localhost:3000"
+```
 ---
 
 ## 🎯 Use Case
@@ -102,14 +83,10 @@ This application is ideal for environments where items are frequently misplaced 
 - 🧑‍💻 Hackathons & Academic Projects  
 - 🔎 Closed-community Lost & Found Systems  
 
-TraceBack reduces confusion, saves time, and provides a secure and organized workflow to reunite lost items with their owners.
+ FoundIt! reduces confusion, saves time, and provides a secure and organized workflow to reunite lost items with their owners.
 ---
 
 ## 🎉 Conclusion
 
-TraceBack combines **simplicity, security, and usability** to solve a real-world problem commonly faced in college and campus environments. The structured claim-and-approval workflow ensures trust, while the clean interface makes the experience intuitive for all users.
-
-With a scalable backend, secure data handling, and a practical feature set, TraceBack is suitable for academic projects, hackathons, and real-world deployment.
-
-Feel free to fork the project, improve it, or adapt it for your own campus or community.  
-Happy coding! 🚀
+FoundIt! transforms a common real-world problem into a structured, secure, and scalable solution.
+With smart matching, privacy-first communication, and ownership verification, it builds trust within communities while making item recovery fast and effortless.
