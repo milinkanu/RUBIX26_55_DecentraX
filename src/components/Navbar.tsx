@@ -80,7 +80,7 @@ export function Navbar() {
       const res = await axios.get(
         `${API_URL}/api/claim/notifications/${email}`
       );
-      setNotifications(res.data);
+      setNotifications(res.data.filter((n: Claim) => n.status === 'pending'));
     } catch (err) {
       console.error("Error fetching notifications:", err);
     }
