@@ -5,7 +5,9 @@ export interface IClaim extends Document {
     finderEmail: string;
     claimantName: string;
     claimantEmail: string;
-    answer: string;
+    answers: { question: string; answer: string; isCorrect: boolean }[];
+    confidenceScore: number;
+    proofImage?: string;
     status: "pending" | "approved" | "rejected";
 }
 
@@ -18,7 +20,13 @@ const claimSchema: Schema<IClaim> = new Schema({
     finderEmail: String,
     claimantName: String,
     claimantEmail: String,
-    answer: String,
+    answers: [{
+        question: String,
+        answer: String,
+        isCorrect: Boolean
+    }],
+    confidenceScore: Number,
+    proofImage: String,
     status: {
         type: String,
         enum: ["pending", "approved", "rejected"],

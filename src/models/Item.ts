@@ -16,6 +16,7 @@ export interface IItem extends Document {
     };
     keywords?: string[];
     file: string;
+    questions?: { question: string; answer: string }[];
     createdAt: Date;
 }
 
@@ -39,6 +40,11 @@ const itemSchema: Schema<IItem> = new Schema(
         },
         file: String,
         keywords: [String],
+        // Verification Questions (truth set by finder)
+        questions: [{
+            question: String,
+            answer: String
+        }]
     },
     { timestamps: true }
 );
