@@ -256,8 +256,8 @@ export function FindItem() {
                         {/* Results Grid */}
                         <div className="flex-1">
                             {loading ? (
-                                <div className="grid sm:grid-cols-2 gap-6">
-                                    {[1, 2, 3, 4].map((n) => (
+                                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {[1, 2, 3, 4, 5, 6].map((n) => (
                                         <div key={n} className="bg-gray-800/50 rounded-xl h-80 animate-pulse"></div>
                                     ))}
                                 </div>
@@ -268,7 +268,7 @@ export function FindItem() {
                                     <p className="text-gray-500 mt-2">Try adjusting your filters to see more results</p>
                                 </div>
                             ) : (
-                                <div className="grid sm:grid-cols-2 gap-6">
+                                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {items.map((item) => (
                                         <div
                                             key={item._id}
