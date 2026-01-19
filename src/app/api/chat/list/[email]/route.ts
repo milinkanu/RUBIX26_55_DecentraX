@@ -4,6 +4,8 @@ import Claim from "@/models/Claim";
 import "@/models/Item";
 import Message from "@/models/Message";
 
+import ChatReadState from "@/models/ChatReadState";
+
 export async function GET(req: NextRequest, props: { params: Promise<{ email: string }> }) {
     const params = await props.params;
     await connectDB();
@@ -28,11 +30,30 @@ export async function GET(req: NextRequest, props: { params: Promise<{ email: st
                 .sort({ createdAt: -1 })
                 .lean();
 
-            const unreadCount = await Message.countDocuments({
-                claimId: chat._id,
-                senderEmail: { $ne: email },
-                isRead: false
-            });
+            // Robust Unread Calculation:
+            // 1. Check if we have a robust 'ChatReadState'
+            const readState = await ChatReadState.findOne({
+                userEmail: email,
+                claimId: chat._id
+            }).lean();
+
+            let unreadCount = 0;
+
+            if (readState) {
+                // Modern logic: Count messages newer than lastReadAt
+                unreadCount = await Message.countDocuments({
+                    claimId: chat._id,
+                    senderEmail: { $ne: email },
+                    createdAt: { $gt: readState.lastReadAt }
+                });
+            } else {
+                // Legacy fallback: Use isRead flags
+                unreadCount = await Message.countDocuments({
+                    claimId: chat._id,
+                    senderEmail: { $ne: email },
+                    isRead: { $ne: true }
+                });
+            }
 
             return {
                 ...chat,
