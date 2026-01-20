@@ -43,6 +43,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 function NavbarContent() {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
   const [notifications, setNotifications] = useState<Claim[]>([]);
   const [matchNotifications, setMatchNotifications] = useState<MatchNotification[]>([]);
   // Use a separate state for history if needed, or just one list.
@@ -100,6 +101,8 @@ function NavbarContent() {
       }
     }
   };
+
+
 
   useEffect(() => {
     // Client-side only
@@ -526,18 +529,28 @@ function NavbarContent() {
                 </span>
               </span>
 
+              {/* Admin Mode Toggle */}
               {user.role === 'admin' && (
-                <Link
-                  href="/admin"
-                  className="hidden lg:inline-flex bg-red-600 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-red-700 transition-colors gap-1 items-center"
-                >
-                  🛡️ Admin
-                </Link>
+                pathname?.startsWith('/admin') ? (
+                  <Link
+                    href="/dashboard"
+                    className="hidden lg:flex items-center gap-2 bg-yellow-400 text-black px-4 py-2 rounded-lg font-bold hover:bg-yellow-500 transition shadow-[0_0_10px_rgba(250,204,21,0.5)]"
+                  >
+                    👤 User Mode
+                  </Link>
+                ) : (
+                  <Link
+                    href="/admin"
+                    className="hidden lg:flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-red-700 transition shadow-[0_0_10px_rgba(220,38,38,0.5)]"
+                  >
+                    🛡️ Admin Panel
+                  </Link>
+                )
               )}
 
               <button
                 onClick={handleLogout}
-                className="hidden lg:inline-flex bg-yellow-400 text-black px-3 py-1.5 rounded-lg font-semibold hover:bg-yellow-500 transition-colors"
+                className="hidden lg:inline-flex bg-yellow-400 text-black px-4 py-2 rounded-lg font-bold hover:bg-yellow-500 transition-colors shadow-lg shadow-yellow-400/20"
               >
                 Logout
               </button>
