@@ -16,10 +16,12 @@ interface Claim {
   claimantName: string;
   itemId: {
     title: string;
+    type?: string;
   };
   answer: string;
   status: string;
   finderEmail: string;
+  finderName?: string;
 }
 
 interface MatchNotification {
@@ -344,7 +346,7 @@ function NavbarContent() {
                           ))}
 
                           {notifications.map((claim) => {
-                            const isFinder = user?.email === claim.finderEmail;
+                            const isFinder = user?.email?.toLowerCase() === claim.finderEmail?.toLowerCase();
 
                             return (
                               <div
@@ -365,17 +367,32 @@ function NavbarContent() {
                                 <div className="flex justify-between items-start">
                                   <div>
                                     <p className="font-semibold text-yellow-400 mb-1">
-                                      {claim.status === 'approved' ? 'Active Chat' : 'New Claim Request'}
+                                      {claim.status === 'approved' ? 'Active Chat' :
+                                        (claim.itemId?.type === 'Lost' && !isFinder ? 'Item Found!' : 'New Claim Request')}
                                     </p>
                                     <p className="text-gray-300 text-xs mb-1">
                                       <span className="text-gray-400">Item:</span>{" "}
                                       {claim.itemId?.title || "Item Deleted"}
                                     </p>
-                                    <p className="text-gray-300 text-xs mb-1">
-                                      <span className="text-gray-400">{isFinder ? "Claimant" : "Finder"}:</span>{" "}
-                                      {isFinder ? claim.claimantName : claim.finderEmail}
-                                    </p>
-                                    {claim.status === 'pending' && isFinder && (
+
+                                    {claim.itemId?.type === 'Lost' ? (
+                                      !isFinder ? (
+                                        <p className="text-gray-300 text-xs mb-1 mt-1 leading-relaxed">
+                                          <span className="text-white font-bold">{claim.finderName || claim.finderEmail}</span> wants to connect with you.
+                                        </p>
+                                      ) : (
+                                        <p className="text-gray-300 text-xs mb-1">
+                                          <span className="text-gray-400">Owner:</span> {claim.claimantName}
+                                        </p>
+                                      )
+                                    ) : (
+                                      <p className="text-gray-300 text-xs mb-1">
+                                        <span className="text-gray-400">{isFinder ? "Claimant" : "Finder"}:</span>{" "}
+                                        {isFinder ? claim.claimantName : claim.finderEmail}
+                                      </p>
+                                    )}
+
+                                    {claim.status === 'pending' && isFinder && claim.itemId?.type !== 'Lost' && (
                                       <p className="text-gray-300 text-xs">
                                         <span className="text-gray-400">Answer:</span>{" "}
                                         {claim.answer}
@@ -395,22 +412,37 @@ function NavbarContent() {
                                     </Link>
                                   ) : (
                                     <>
-                                      <button
-                                        onClick={() =>
-                                          handleClaimAction(claim._id, "approved")
-                                        }
-                                        className="bg-green-500/90 px-2 py-1.5 rounded text-white text-xs hover:bg-green-600 transition flex-1 font-semibold"
-                                      >
-                                        Accept
-                                      </button>
-                                      <button
-                                        onClick={() =>
-                                          handleClaimAction(claim._id, "rejected")
-                                        }
-                                        className="bg-red-500/90 px-2 py-1.5 rounded text-white text-xs hover:bg-red-600 transition flex-1 font-semibold"
-                                      >
-                                        Reject
-                                      </button>
+                                      {/* only show Accept/Reject if YOU are the one who needs to approve 
+                                          Found Item: Finder approves. (isFinder = true)
+                                          Lost Item: Owner approves. (isFinder = false)
+                                      */}
+                                      {(
+                                        (claim.itemId?.type !== 'Lost' && isFinder) ||
+                                        (claim.itemId?.type === 'Lost' && !isFinder)
+                                      ) ? (
+                                        <>
+                                          <button
+                                            onClick={() =>
+                                              handleClaimAction(claim._id, "approved")
+                                            }
+                                            className="bg-green-500/90 px-2 py-1.5 rounded text-white text-xs hover:bg-green-600 transition flex-1 font-semibold"
+                                          >
+                                            Accept
+                                          </button>
+                                          <button
+                                            onClick={() =>
+                                              handleClaimAction(claim._id, "rejected")
+                                            }
+                                            className="bg-red-500/90 px-2 py-1.5 rounded text-white text-xs hover:bg-red-600 transition flex-1 font-semibold"
+                                          >
+                                            Reject
+                                          </button>
+                                        </>
+                                      ) : (
+                                        <div className="w-full text-center text-xs text-yellow-500 bg-yellow-400/10 py-1.5 rounded">
+                                          Request Sent
+                                        </div>
+                                      )}
                                     </>
                                   )}
                                 </div>

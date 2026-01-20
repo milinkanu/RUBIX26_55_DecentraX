@@ -2,6 +2,7 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 
 export interface IClaim extends Document {
     itemId: mongoose.Types.ObjectId;
+    finderName?: string;
     finderEmail: string;
     claimantName: string;
     claimantEmail: string;
@@ -17,6 +18,7 @@ const claimSchema: Schema<IClaim> = new Schema({
         ref: "Item",
         required: true,
     },
+    finderName: String,
     finderEmail: String,
     claimantName: String,
     claimantEmail: String,

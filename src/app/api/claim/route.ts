@@ -11,28 +11,61 @@ export async function POST(req: NextRequest) {
         const { itemId, claimantName, claimantEmail, answers, proofImage } = await req.json();
 
         // Check if item exists and get finder email
-        const item = await Item.findById(itemId).select("+email +phone questions");
+        const item = await Item.findById(itemId).select("+email +phone questions title name");
         if (!item) {
             return NextResponse.json({ message: "Item not found" }, { status: 404 });
         }
 
-        const existingClaim = await Claim.findOne({ itemId, claimantEmail });
+        // Check for existing claim (as either claimant or finder)
+        const existingClaim = await Claim.findOne({
+            itemId,
+            $or: [{ claimantEmail }, { finderEmail: claimantEmail }]
+        });
+
         if (existingClaim) {
-            return NextResponse.json({ message: "You have already claimed this item." }, { status: 400 });
+            return NextResponse.json({ message: "You have already submitted a request for this item." }, { status: 400 });
         }
 
         if (item.email === claimantEmail) {
-            return NextResponse.json({ message: "You cannot claim your own item." }, { status: 400 });
+            return NextResponse.json({ message: "You cannot claim or report your own item." }, { status: 400 });
         }
 
-        // Calculate Confidence Score
-        const { score, details } = calculateVerificationScore(item, answers || []);
+        let finderEmail = item.email;
+        let finderName = item.name;
+        let finalClaimantName = claimantName;
+        let finalClaimantEmail = claimantEmail;
+        let score = 0;
+        let details: any[] = [];
+        let notificationTitle = "";
+        let notificationMessage = "";
+
+        if (item.type?.toLowerCase() === "lost") {
+            // If item was Lost, the person reporting (currentUser) is the FINDER
+            // The person who posted (item.email) is the CLAIMANT (Owner)
+            finderEmail = claimantEmail;
+            finderName = claimantName;
+            finalClaimantEmail = item.email;
+            finalClaimantName = item.name; // Owner's name
+
+            score = 100; // No verification needed, they found it
+            notificationTitle = "Item Found!";
+            notificationMessage = `${claimantName} has reported finding your lost item "${item.title}". Check your dashboard to connect.`;
+        } else {
+            // Standard flow: Item was Found, currentUser is claiming it
+            const verifyResult = calculateVerificationScore(item, answers || []);
+            score = verifyResult.score;
+            details = verifyResult.details;
+
+            notificationTitle = `New Claim Request (${score}% Confidence)`;
+            notificationMessage = `${claimantName} has claimed your item "${item.title || "Unknown Item"}". Verification Score: ${score}%`;
+        }
 
         const newClaim = new Claim({
             itemId,
-            finderEmail: item.email,
-            claimantName,
-            claimantEmail,
+            finderEmail,
+            finderName,
+            claimantName: finalClaimantName,
+            claimantEmail: finalClaimantEmail,
             answers: details,
             confidenceScore: score,
             proofImage, // Optional proof
@@ -41,21 +74,7 @@ export async function POST(req: NextRequest) {
 
         await newClaim.save();
 
-        // Create Notification for the Finder
-        // Create Notification for the Finder
-        // Lookup user by email to get their ID
-        const User = (await import("@/models/User")).default;
-        const finderUser = await User.findOne({ email: item.email });
 
-        if (finderUser) {
-            await Notification.create({
-                userId: finderUser._id,
-                title: `New Claim Request (${score}% Confidence)`,
-                message: `${claimantName} has claimed your item "${item.title}". Verification Score: ${score}%`,
-                relatedItem: itemId, // Linking to Item, but could store claim ID if schema allowed.
-                type: "CLAIM",
-            });
-        }
 
         return NextResponse.json(newClaim, { status: 201 });
     } catch (error: any) {

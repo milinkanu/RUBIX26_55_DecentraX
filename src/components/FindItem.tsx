@@ -102,6 +102,48 @@ export function FindItem() {
         }
     }, [itemId, items]);
 
+    // Check status when item is selected
+    useEffect(() => {
+        if (selectedItem) {
+            const storedUser = localStorage.getItem("user");
+            const user = storedUser ? JSON.parse(storedUser) : null;
+            if (user?.email) {
+                axios.get(`${API_URL}/api/claim/status?itemId=${selectedItem._id}&email=${user.email}`)
+                    .then(res => {
+                        if (res.data.submitted) {
+                            setClaims(prev => ({
+                                ...prev,
+                                [selectedItem._id]: {
+                                    claimId: res.data.claimId,
+                                    submitted: true,
+                                    approved: res.data.approved,
+                                    // If approved, we might want to fetch contact, but the existing polling effect will handle it partially
+                                    // or we should fetch contact info here if approved?
+                                    // Let's stick to setting submitted/approved status.
+                                    // If approved, the polling effect might try to fetch contact info if we don't have it.
+                                }
+                            }));
+                            // If it's already approved, fetch contact info immediately
+                            if (res.data.approved) {
+                                axios.get(`${API_URL}/api/claim/${res.data.claimId}/contact`)
+                                    .then(contactRes => {
+                                        setClaims(prev => ({
+                                            ...prev,
+                                            [selectedItem._id]: {
+                                                ...prev[selectedItem._id],
+                                                phone: contactRes.data.phone,
+                                                email: contactRes.data.email
+                                            }
+                                        }));
+                                    });
+                            }
+                        }
+                    })
+                    .catch(err => console.error("Error checking claim status:", err));
+            }
+        }
+    }, [selectedItem]);
+
     const handleApplyFilters = () => {
         fetchItems();
         setShowFilter(false);
@@ -146,9 +188,9 @@ export function FindItem() {
 
             setShowClaimForm(false);
             toast.success("Claim sent successfully");
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
-            toast.error("Failed to submit claim");
+            toast.error(err.response?.data?.message || "Failed to submit claim");
         }
     };
 
@@ -182,8 +224,22 @@ export function FindItem() {
 
                         toast.success("Claim approved!");
                     }
-                } catch (err) {
+                } catch (err: any) {
                     console.error("Polling error:", err);
+                    // If claim is not found (404), stop polling and reset claim state
+                    if (err.response && err.response.status === 404) {
+                        clearInterval(pollingRefs.current[itemId]);
+                        delete pollingRefs.current[itemId];
+                        
+                        setClaims((prev) => {
+                            const newClaims = { ...prev };
+                            delete newClaims[itemId];
+                            return newClaims;
+                        });
+                        
+                        // Optional: notify user
+                        // toast.error("Claim request not found or removed.");
+                    }
                 }
             }, 5000);
         });
@@ -372,8 +428,8 @@ export function FindItem() {
                     </div>
 
                     {selectedItem && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xl">
-                            <div className="bg-white/10 border border-white/20 shadow-2xl rounded-2xl max-w-md w-full p-6 relative mx-4">
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xl p-4">
+                            <div className="bg-white/10 border border-white/20 shadow-2xl rounded-2xl max-w-md w-full p-6 relative max-h-[85vh] overflow-y-auto custom-scrollbar">
                                 <button
                                     onClick={() => {
                                         setSelectedItem(null);
@@ -490,7 +546,7 @@ export function FindItem() {
                                                         </>
                                                     ) : (
                                                         <p className="text-gray-300 text-sm">
-                                                            Notify the owner that you found their item. They will receive your contact details.
+                                                            Notify the owner that you found their item. They will be able to chat with you.
                                                         </p>
                                                     )}
 
@@ -498,7 +554,7 @@ export function FindItem() {
                                                         onClick={handleSubmitAnswer}
                                                         className="w-full bg-yellow-400 text-black py-2 rounded font-semibold hover:bg-yellow-500 transition"
                                                     >
-                                                        {selectedItem.type === 'Found' ? "Submit Proof" : "Send Contact Info"}
+                                                        {selectedItem.type === 'Found' ? "Submit Proof" : "Notify Owner"}
                                                     </button>
                                                 </div>
                                             )}

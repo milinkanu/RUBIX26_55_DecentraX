@@ -59,6 +59,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ email: st
                 ...chat,
                 lastMessage: lastMessage ? {
                     content: lastMessage.content,
+                    imageUrl: lastMessage.imageUrl,
                     createdAt: lastMessage.createdAt
                 } : null,
                 unreadCount
