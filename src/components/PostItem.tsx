@@ -92,7 +92,7 @@ export function PostItem() {
             !formData.phone ||
             !formData.title ||
             !formData.description ||
-            (formData.type === "Found" && !formData.verify) ||
+            (formData.type === "Found" && (!formData.questions || formData.questions.length === 0)) ||
             !formData.category ||
             !formData.city ||
             !formData.area ||
