@@ -1,0 +1,66 @@
+:root {
+  --str-chat__primary-color: #FACC15;
+  --str-chat__active-primary-color: #EAB308;
+  --str-chat__surface-color: #171717;
+  --str-chat__secondary-surface-color: #0A0A0A;
+  --str-chat__primary-surface-color: #262626;
+  --str-chat__primary-surface-color-low-emphasis: #404040;
+  --str-chat__border-radius: 12px;
+}
+
+.str-chat-channel-list {
+  background-color: #000000;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.str-chat__channel-list-header {
+  background-color: #171717;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.str-chat__main-panel {
+  background-color: #000000;
+}
+
+.str-chat__header-livestream {
+  background-color: #171717;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.str-chat__message-input {
+  background-color: #171717;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.str-chat__input-flat {
+  background-color: #262626;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.str-chat__message-simple-text-inner {
+  background-color: #262626;
+  color: #E5E5E5;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.str-chat__message-simple--me .str-chat__message-simple-text-inner {
+  background-color: #FACC15;
+  color: black;
+  border: none;
+}
+
+.str-chat__channel-preview {
+  background-color: black;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.str-chat__channel-preview:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.str-chat__channel-preview--active {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-left: 4px solid #FACC15;
+}

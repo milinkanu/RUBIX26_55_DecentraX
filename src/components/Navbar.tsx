@@ -44,6 +44,9 @@ function NavbarContent() {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [notifications, setNotifications] = useState<Claim[]>([]);
   const [matchNotifications, setMatchNotifications] = useState<MatchNotification[]>([]);
+  // Use a separate state for history if needed, or just one list.
+  // Ideally, one list 'matchNotifications' can handle it if we re-fetch when tab changes.
+  const [activeTab, setActiveTab] = useState<'new' | 'history'>('new');
   const [chatList, setChatList] = useState<Claim[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [showChatDropdown, setShowChatDropdown] = useState(false);
@@ -57,6 +60,12 @@ function NavbarContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const searchParams = useSearchParams();
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
+  const activeTabRef = useRef<'new' | 'history'>('new');
+
+  // Keep ref in sync
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
 
   // Sync state with URL on mount/update
   useEffect(() => {
@@ -104,9 +113,21 @@ function NavbarContent() {
         fetchChatList(parsedUser.email);
 
         const interval = setInterval(() => {
-          fetchNotifications(parsedUser.email);
-          fetchMatchNotifications(parsedUser.email);
-          fetchChatList(parsedUser.email);
+          // Only auto-refresh if we are in 'new' mode or to check badge count.
+          // Ideally, we just fetch 'new' stuff for the badge count in background.
+          // But if 'history' is open, we might overwrite it. 
+          // For now, let's just fetch default (unread) to keep badge up to date 
+          // but ONLY if we are NOT viewing history actively in the dropdown?
+          // Actually, simplistic approach: always fetch unread for badge.
+          // BUT this state 'matchNotifications' drives the dropdown too.
+
+          // Fix: If activeTab is 'history', do not auto-refresh or refresh history?
+          // If we are in history, we don't want to overwrite with unread ones.
+          if (!document.hidden && activeTabRef.current === 'new') {
+            fetchNotifications(parsedUser.email);
+            fetchMatchNotifications(parsedUser.email, false);
+            fetchChatList(parsedUser.email);
+          }
         }, 5000);
 
         return () => clearInterval(interval);
@@ -132,9 +153,10 @@ function NavbarContent() {
       );
       setNotifications((prev) => prev.filter((claim) => claim._id !== claimId));
 
-      // If approved, refresh the chat list immediately
+      // If approved, refresh the chat list immediately and navigate
       if (status === 'approved' && user?.email) {
         fetchChatList(user.email);
+        router.push(`/chat/${claimId}`);
       }
     } catch (err) {
       console.error("Error updating claim status:", err);
@@ -152,9 +174,10 @@ function NavbarContent() {
     }
   };
 
-  const fetchMatchNotifications = async (email: string) => {
+  const fetchMatchNotifications = async (email: string, includeRead: boolean = false) => {
     try {
-      const res = await axios.get(`${API_URL}/api/notifications?email=${email}`);
+      const filter = includeRead ? 'all' : 'unread';
+      const res = await axios.get(`${API_URL}/api/notifications?email=${email}&filter=${filter}`);
       setMatchNotifications(res.data);
     } catch (err) {
       console.error("Error fetching match notifications:", err);
@@ -307,7 +330,34 @@ function NavbarContent() {
                         Notifications
                       </h4>
 
-                      {notifications.length === 0 && matchNotifications.length === 0 ? (
+                      <div className="flex bg-black/40 p-1 rounded-lg mb-3 mx-1">
+                        <button
+                          onClick={() => {
+                            setActiveTab('new');
+                            if (user?.email) {
+                              fetchNotifications(user.email);
+                              fetchMatchNotifications(user.email, false);
+                            }
+                          }}
+                          className={`flex-1 py-1 text-xs font-bold rounded-md transition-all ${activeTab === 'new' ? 'bg-yellow-400 text-black shadow' : 'text-gray-400 hover:text-white'}`}
+                        >
+                          New
+                        </button>
+                        <button
+                          onClick={() => {
+                            setActiveTab('history');
+                            if (user?.email) {
+                              fetchNotifications(user.email); // Fetches claims (pending/approved/rejected)
+                              fetchMatchNotifications(user.email, true); // Fetches all history
+                            }
+                          }}
+                          className={`flex-1 py-1 text-xs font-bold rounded-md transition-all ${activeTab === 'history' ? 'bg-yellow-400 text-black shadow' : 'text-gray-400 hover:text-white'}`}
+                        >
+                          History
+                        </button>
+                      </div>
+
+                      {notifications.filter(n => activeTab === 'new' ? n.status === 'pending' : true).length === 0 && matchNotifications.length === 0 ? (
                         <div className="flex flex-col items-center justify-center text-center py-4 text-gray-400 text-sm">
                           <p>No new notifications</p>
                         </div>
@@ -345,110 +395,116 @@ function NavbarContent() {
                             </div>
                           ))}
 
-                          {notifications.map((claim) => {
-                            const isFinder = user?.email?.toLowerCase() === claim.finderEmail?.toLowerCase();
+                          {notifications
+                            .filter(n => {
+                              if (activeTab === 'new') return n.status === 'pending';
+                              return true; // Show all in history
+                            })
+                            .map((claim) => {
+                              const isFinder = user?.email?.toLowerCase() === claim.finderEmail?.toLowerCase();
+                              const isLost = claim.itemId?.type?.toLowerCase() === 'lost';
 
-                            return (
-                              <div
-                                key={claim._id}
-                                className="text-sm border-b border-white/10 pb-2 bg-white/5 rounded-md p-3 hover:bg-white/10 transition relative"
-                              >
-                                {claim.status === 'pending' && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleClaimAction(claim._id, "rejected");
-                                    }}
-                                    className="absolute top-2 right-2 text-gray-500 hover:text-red-400 transition-colors"
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </button>
-                                )}
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <p className="font-semibold text-yellow-400 mb-1">
-                                      {claim.status === 'approved' ? 'Active Chat' :
-                                        (claim.itemId?.type === 'Lost' && !isFinder ? 'Item Found!' : 'New Claim Request')}
-                                    </p>
-                                    <p className="text-gray-300 text-xs mb-1">
-                                      <span className="text-gray-400">Item:</span>{" "}
-                                      {claim.itemId?.title || "Item Deleted"}
-                                    </p>
+                              return (
+                                <div
+                                  key={claim._id}
+                                  className="text-sm border-b border-white/10 pb-2 bg-white/5 rounded-md p-3 hover:bg-white/10 transition relative"
+                                >
+                                  {claim.status === 'pending' && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleClaimAction(claim._id, "rejected");
+                                      }}
+                                      className="absolute top-2 right-2 text-gray-500 hover:text-red-400 transition-colors"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <p className="font-semibold text-yellow-400 mb-1">
+                                        {claim.status === 'approved' ? 'Active Chat' :
+                                          (isLost && !isFinder ? 'Item Found!' : 'New Claim Request')}
+                                      </p>
+                                      <p className="text-gray-300 text-xs mb-1">
+                                        <span className="text-gray-400">Item:</span>{" "}
+                                        {claim.itemId?.title || "Item Deleted"}
+                                      </p>
 
-                                    {claim.itemId?.type === 'Lost' ? (
-                                      !isFinder ? (
-                                        <p className="text-gray-300 text-xs mb-1 mt-1 leading-relaxed">
-                                          <span className="text-white font-bold">{claim.finderName || claim.finderEmail}</span> wants to connect with you.
-                                        </p>
+                                      {isLost ? (
+                                        !isFinder ? (
+                                          <p className="text-gray-300 text-xs mb-1 mt-1 leading-relaxed">
+                                            <span className="text-white font-bold">{claim.finderName || claim.finderEmail}</span> wants to connect with you.
+                                          </p>
+                                        ) : (
+                                          <p className="text-gray-300 text-xs mb-1">
+                                            <span className="text-gray-400">Owner:</span> {claim.claimantName}
+                                          </p>
+                                        )
                                       ) : (
                                         <p className="text-gray-300 text-xs mb-1">
-                                          <span className="text-gray-400">Owner:</span> {claim.claimantName}
+                                          <span className="text-gray-400">{isFinder ? "Claimant" : "Finder"}:</span>{" "}
+                                          {isFinder ? claim.claimantName : claim.finderEmail}
                                         </p>
-                                      )
-                                    ) : (
-                                      <p className="text-gray-300 text-xs mb-1">
-                                        <span className="text-gray-400">{isFinder ? "Claimant" : "Finder"}:</span>{" "}
-                                        {isFinder ? claim.claimantName : claim.finderEmail}
-                                      </p>
-                                    )}
+                                      )}
 
-                                    {claim.status === 'pending' && isFinder && claim.itemId?.type !== 'Lost' && (
-                                      <p className="text-gray-300 text-xs">
-                                        <span className="text-gray-400">Answer:</span>{" "}
-                                        {claim.answer}
-                                      </p>
-                                    )}
+                                      {claim.status === 'pending' && isFinder && !isLost && (
+                                        <p className="text-gray-300 text-xs">
+                                          <span className="text-gray-400">Answer:</span>{" "}
+                                          {claim.answer}
+                                        </p>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
 
-                                <div className="flex gap-2 mt-3">
-                                  {claim.status === 'approved' ? (
-                                    <Link
-                                      href={`/chat/${claim._id}`}
-                                      className="bg-yellow-400 text-black px-3 py-1.5 rounded text-xs font-bold hover:bg-yellow-500 transition w-full text-center block"
-                                      onClick={() => setShowDropdown(false)}
-                                    >
-                                      Open Chat
-                                    </Link>
-                                  ) : (
-                                    <>
-                                      {/* only show Accept/Reject if YOU are the one who needs to approve 
+                                  <div className="flex gap-2 mt-3">
+                                    {claim.status === 'approved' ? (
+                                      <Link
+                                        href={`/chat/${claim._id}`}
+                                        className="bg-yellow-400 text-black px-3 py-1.5 rounded text-xs font-bold hover:bg-yellow-500 transition w-full text-center block"
+                                        onClick={() => setShowDropdown(false)}
+                                      >
+                                        Open Chat
+                                      </Link>
+                                    ) : (
+                                      <>
+                                        {/* only show Accept/Reject if YOU are the one who needs to approve 
                                           Found Item: Finder approves. (isFinder = true)
                                           Lost Item: Owner approves. (isFinder = false)
                                       */}
-                                      {(
-                                        (claim.itemId?.type !== 'Lost' && isFinder) ||
-                                        (claim.itemId?.type === 'Lost' && !isFinder)
-                                      ) ? (
-                                        <>
-                                          <button
-                                            onClick={() =>
-                                              handleClaimAction(claim._id, "approved")
-                                            }
-                                            className="bg-green-500/90 px-2 py-1.5 rounded text-white text-xs hover:bg-green-600 transition flex-1 font-semibold"
-                                          >
-                                            Accept
-                                          </button>
-                                          <button
-                                            onClick={() =>
-                                              handleClaimAction(claim._id, "rejected")
-                                            }
-                                            className="bg-red-500/90 px-2 py-1.5 rounded text-white text-xs hover:bg-red-600 transition flex-1 font-semibold"
-                                          >
-                                            Reject
-                                          </button>
-                                        </>
-                                      ) : (
-                                        <div className="w-full text-center text-xs text-yellow-500 bg-yellow-400/10 py-1.5 rounded">
-                                          Request Sent
-                                        </div>
-                                      )}
-                                    </>
-                                  )}
+                                        {(
+                                          (!isLost && isFinder) ||
+                                          (isLost && !isFinder)
+                                        ) ? (
+                                          <>
+                                            <button
+                                              onClick={() =>
+                                                handleClaimAction(claim._id, "approved")
+                                              }
+                                              className="bg-green-500/90 px-2 py-1.5 rounded text-white text-xs hover:bg-green-600 transition flex-1 font-semibold"
+                                            >
+                                              Accept
+                                            </button>
+                                            <button
+                                              onClick={() =>
+                                                handleClaimAction(claim._id, "rejected")
+                                              }
+                                              className="bg-red-500/90 px-2 py-1.5 rounded text-white text-xs hover:bg-red-600 transition flex-1 font-semibold"
+                                            >
+                                              Reject
+                                            </button>
+                                          </>
+                                        ) : (
+                                          <div className="w-full text-center text-xs text-yellow-500 bg-yellow-400/10 py-1.5 rounded">
+                                            {isLost ? "Waiting for Owner" : "Waiting for Finder"}
+                                          </div>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            })}
                         </div>
                       )}
                     </div>

@@ -18,7 +18,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ email: st
                 { finderEmail: { $regex: new RegExp(`^${email}$`, 'i') } },
                 { claimantEmail: { $regex: new RegExp(`^${email}$`, 'i') } }
             ],
-            status: { $in: ['pending', 'approved'] }
+            status: { $in: ['pending', 'approved', 'rejected'] }
         })
             .populate({
                 path: "itemId",
@@ -30,7 +30,8 @@ export async function GET(req: NextRequest, props: { params: Promise<{ email: st
             if (!claim.itemId) return false; // Sanity check
             if (claim.status === 'approved') return true;
 
-            const isLostItem = (claim.itemId as any).type === 'Lost';
+            const type = (claim.itemId as any).type;
+            const isLostItem = type && type.toLowerCase() === 'lost';
             // Determine my role in this specific claim
             // Note: DB emails might be mixed case, assuming normalized or checking both
             const amIFinder = claim.finderEmail.toLowerCase() === email.toLowerCase();

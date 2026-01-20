@@ -57,7 +57,25 @@ export default function ChatPage() {
     const [currentChat, setCurrentChat] = useState<ChatListItem | null>(null);
     const [searchChat, setSearchChat] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    // messagesEndRef is already declared above
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isBlocked, setIsBlocked] = useState(false);
+    const [blockedBy, setBlockedBy] = useState<string | undefined>(undefined);
+    const [chatStatus, setChatStatus] = useState<"pending" | "approved" | "rejected" | "solved">("approved");
+    const [showMenu, setShowMenu] = useState(false);
+    const [showDetails, setShowDetails] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    // Close menu on click outside
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setShowMenu(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     const claimIdRef = useRef(claimId);
     claimIdRef.current = claimId; // Update synchronously on every render
@@ -140,6 +158,10 @@ export default function ChatPage() {
             const res = await axios.get(`/api/chat/list/${email}`);
             const sanitizedChats = res.data.map((chat: ChatListItem) => {
                 if (chat._id === claimIdRef.current) {
+                    // Update local state if this is the active chat
+                    // Note: 'status' might not be on chatListItem interface yet, we might need to fetch it separately or expand interface
+                    // But we can check isBlocked if backend returns it
+                    // Let's rely on fetchMessages or specific status check for details
                     return { ...chat, unreadCount: 0 };
                 }
                 return chat;
@@ -165,6 +187,13 @@ export default function ChatPage() {
                 fetchedMessages = res.data.messages;
                 lastReadAt = res.data.lastReadAt;
             }
+
+            // Check for status fields in the response. 
+            // We should ensure the API returns claim status and block info alongside messages or as wrapper
+            // Currently GET /api/chat/[claimId] usually returns just messages or {messages}.
+            // We might need to fetch claim details separately or update the API?
+            // Let's fetch claim details in a separate call for robustness
+            fetchClaimDetails();
 
             if (!initialFetchDone.current && currentUserEmail) {
                 let firstUnread;
@@ -225,6 +254,49 @@ export default function ChatPage() {
             window.dispatchEvent(new Event('chat-read'));
         } catch (err) {
             console.error("Error marking read:", err);
+        }
+    };
+
+    const fetchClaimDetails = async () => {
+        if (!claimId) return;
+        try {
+            const res = await axios.get(`/api/claim/${claimId}`);
+            setChatStatus(res.data.status);
+            setIsBlocked(res.data.isBlocked);
+            setBlockedBy(res.data.blockedBy);
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    const handleBlockAction = async () => {
+        if (!claimId || !currentUserEmail) return;
+        const action = isBlocked ? 'unblock' : 'block';
+        try {
+            await axios.post('/api/chat/block', {
+                claimId,
+                email: currentUserEmail,
+                action
+            });
+            fetchClaimDetails(); // Refresh status
+            alert(`Chat ${action}ed successfully`);
+        } catch (err: any) {
+            alert(err.response?.data?.message || "Action failed");
+        }
+    };
+
+    // Resolve Action implementation
+    const handleResolveAction = async () => {
+        if (!confirm("Are you sure you want to mark this item as Solved? This will close the chat.")) return;
+        try {
+            await axios.post(`/api/claim/${claimId}/resolve`, {
+                userId: 'legacy_ignore',
+                email: currentUserEmail
+            });
+            fetchClaimDetails();
+            alert("Item marked as Solved!");
+        } catch (err: any) {
+            alert(err.response?.data?.message || "Failed to resolve");
         }
     };
 
@@ -421,9 +493,57 @@ export default function ChatPage() {
                                 </div>
                             </div>
                         </div>
-                        <div className="flex gap-4 text-gray-400 items-center">
+                        <div className="flex gap-4 text-gray-400 items-center relative">
                             <Search size={20} className="hover:text-yellow-400 transition cursor-pointer hidden sm:block" />
-                            <MoreVertical size={20} className="hover:text-yellow-400 transition cursor-pointer" />
+                            <div className="relative" ref={menuRef}>
+                                <MoreVertical
+                                    size={20}
+                                    className="hover:text-yellow-400 transition cursor-pointer"
+                                    onClick={() => setShowMenu(!showMenu)}
+                                />
+                                {showMenu && (
+                                    <div className="absolute right-0 top-8 bg-neutral-900 border border-white/10 rounded-xl shadow-2xl w-48 py-1 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                        <button
+                                            onClick={() => { setShowDetails(true); setShowMenu(false); }}
+                                            className="w-full text-left px-4 py-2.5 hover:bg-white/5 text-sm transition flex items-center gap-2 group"
+                                        >
+                                            <div className="w-5 h-5 rounded-full border border-yellow-400 flex items-center justify-center text-yellow-400 font-serif font-bold italic text-xs group-hover:bg-yellow-400 group-hover:text-black transition">
+                                                i
+                                            </div>
+                                            <span className="text-yellow-400 font-bold">Chat Details</span>
+                                        </button>
+
+                                        {/* Only show Mark Solved if user is the Item Poster */}
+                                        {/* For Lost Item: Poster is Owner (item.email). If I am item.email, I can solve. */}
+                                        {/* For Found Item: Poster is Finder (item.email). If I am item.email, I can solve. */}
+                                        {/* Wait, we don't have item.email easily here. We have chat.finderEmail etc. */}
+                                        {/* Let's use backend check mostly, but UI hint: */}
+                                        {/* Actually, let's just show it and let backend reject if unauthorized? OR check if we are the 'poster'. */}
+                                        {/* We can check based on chat logic: */}
+                                        {/* If Item is Lost -> Poster is Owner (Claimant in this chat context? No. Owner reported it lost? Wait.) */}
+                                        {/* Let's simplify: Show it. If error, alert. */}
+
+                                        {!isBlocked && chatStatus !== 'solved' && (
+                                            <button
+                                                onClick={() => { handleResolveAction(); setShowMenu(false); }}
+                                                className="w-full text-left px-4 py-2.5 hover:bg-green-500/10 text-sm text-green-500 transition flex items-center gap-2 font-medium"
+                                            >
+                                                ✓ Mark as Solved
+                                            </button>
+                                        )}
+
+                                        <div className="h-px bg-white/10 my-1"></div>
+
+                                        <button
+                                            onClick={() => { handleBlockAction(); setShowMenu(false); }}
+                                            className="w-full text-left px-4 py-2.5 hover:bg-red-500/10 text-sm text-red-500 transition flex items-center gap-2 font-medium"
+                                        >
+                                            {isBlocked && blockedBy === currentUserEmail ? "🔓 Unblock User" : "🚫 Block User"}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
                             <button
                                 onClick={() => router.push('/chat')}
                                 className="bg-neutral-800 hover:bg-neutral-700 text-gray-300 p-2 rounded-lg transition ml-2 border border-white/5"
@@ -433,6 +553,70 @@ export default function ChatPage() {
                             </button>
                         </div>
                     </div>
+
+                    {/* Details Modal */}
+                    {showDetails && (
+                        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                            <div className="bg-neutral-900 border border-white/10 rounded-2xl w-full max-w-md p-6 shadow-2xl relative animate-in zoom-in-95 duration-200">
+                                <button
+                                    onClick={() => setShowDetails(false)}
+                                    className="absolute top-4 right-4 text-gray-400 hover:text-white"
+                                >
+                                    ✕
+                                </button>
+                                <h3 className="text-xl font-bold text-white mb-4">Chat Details</h3>
+
+                                {currentChat?.itemId?.file && (
+                                    <div className="w-full h-48 rounded-xl overflow-hidden mb-4 border border-white/10">
+                                        <Image
+                                            src={currentChat.itemId.file}
+                                            alt="Item"
+                                            width={400}
+                                            height={200}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    </div>
+                                )}
+
+                                <div className="space-y-3">
+                                    <div>
+                                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Item Name</p>
+                                        <p className="text-white text-lg font-medium">{currentChat?.itemId?.title || "Unknown Item"}</p>
+                                    </div>
+
+                                    <div>
+                                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Chat Reason</p>
+                                        <p className="text-gray-300 text-sm leading-relaxed">
+                                            This chat was started because
+                                            <span className="text-yellow-400 font-bold mx-1">
+                                                {currentUserEmail === currentChat?.finderEmail ? "you found this item" : "you claimed this item"}
+                                            </span>
+                                            and the request was approved.
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Status</p>
+                                        <div className={`inline-flex px-3 py-1 rounded-full text-xs font-bold ${chatStatus === 'solved' ? 'bg-green-500/20 text-green-500' :
+                                            chatStatus === 'approved' ? 'bg-blue-500/20 text-blue-500' :
+                                                'bg-gray-500/20 text-gray-500'
+                                            }`}>
+                                            {chatStatus?.toUpperCase()}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="mt-6 pt-4 border-t border-white/10 flex justify-end">
+                                    <button
+                                        onClick={() => setShowDetails(false)}
+                                        className="px-4 py-2 bg-white text-black font-bold rounded-lg hover:bg-gray-200 transition"
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Messages Area */}
                     <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-3 bg-black custom-scrollbar">
@@ -480,64 +664,98 @@ export default function ChatPage() {
                         <div ref={messagesEndRef} />
                     </div>
 
-                    {/* Input Area */}
-                    <div className="bg-neutral-900 z-10 border-t border-white/10 relative">
-                        {/* Image Preview */}
-                        {previewUrl && (
-                            <div className="absolute bottom-full left-0 w-full bg-neutral-900 border-t border-white/10 p-3 flex items-start gap-4 animate-in slide-in-from-bottom-5">
-                                <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-white/20 group">
-                                    <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
-                                    <button
-                                        onClick={() => { setImageFile(null); setPreviewUrl(null); }}
-                                        className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-white"
-                                    >
-                                        ✕
-                                    </button>
-                                </div>
-                                <div className="flex-1">
-                                    <p className="text-xs text-yellow-400 font-bold mb-0.5">Image Selected</p>
-                                    <p className="text-xs text-gray-400 truncate">{imageFile?.name}</p>
-                                </div>
+                    {/* Input Area / Status Banner */}
+                    {(chatStatus === 'solved' || isBlocked) ? (
+                        <div className="bg-neutral-900 border-t border-white/10 p-6 text-center">
+                            <div className="flex flex-col items-center gap-2">
+                                {isBlocked ? (
+                                    <>
+                                        <AlertTriangle className="text-red-500 w-8 h-8" />
+                                        <h3 className="text-red-500 font-bold">Chat Blocked</h3>
+                                        <p className="text-gray-400 text-sm">
+                                            {blockedBy === currentUserEmail
+                                                ? "You have blocked this conversation."
+                                                : "This conversation has been blocked."}
+                                        </p>
+                                        {blockedBy === currentUserEmail && (
+                                            <button
+                                                onClick={handleBlockAction}
+                                                className="mt-2 text-xs bg-neutral-800 text-gray-300 px-3 py-1 rounded border border-white/20 hover:bg-neutral-700"
+                                            >
+                                                Unblock
+                                            </button>
+                                        )}
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center text-green-500">
+                                            <span className="font-bold">✓</span>
+                                        </div>
+                                        <h3 className="text-green-500 font-bold">Transaction Solved</h3>
+                                        <p className="text-gray-400 text-sm">This item has been marked as solved. No further messages can be sent.</p>
+                                    </>
+                                )}
                             </div>
-                        )}
+                        </div>
+                    ) : (
+                        <div className="bg-neutral-900 z-10 border-t border-white/10 relative">
+                            {/* Image Preview */}
+                            {previewUrl && (
+                                <div className="absolute bottom-full left-0 w-full bg-neutral-900 border-t border-white/10 p-3 flex items-start gap-4 animate-in slide-in-from-bottom-5">
+                                    <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-white/20 group">
+                                        <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                                        <button
+                                            onClick={() => { setImageFile(null); setPreviewUrl(null); }}
+                                            className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-white"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-xs text-yellow-400 font-bold mb-0.5">Image Selected</p>
+                                        <p className="text-xs text-gray-400 truncate">{imageFile?.name}</p>
+                                    </div>
+                                </div>
+                            )}
 
-                        <div className="px-4 py-4 flex items-center gap-3">
-                            <input
-                                type="file"
-                                ref={fileInputRef}
-                                className="hidden"
-                                accept="image/*"
-                                onChange={handleFileChange}
-                            />
-                            <button
-                                type="button"
-                                onClick={() => fileInputRef.current?.click()}
-                                className={`p-2 rounded-full transition ${imageFile ? 'text-yellow-400 bg-yellow-400/10' : 'text-gray-400 hover:bg-neutral-800'}`}
-                            >
-                                <Paperclip size={22} />
-                            </button>
-                            <form onSubmit={handleSendMessage} className="flex-1 flex items-center gap-3 bg-neutral-800 rounded-xl px-4 py-2 border border-white/5 focus-within:border-yellow-400/50 transition-colors">
+                            <div className="px-4 py-4 flex items-center gap-3">
                                 <input
-                                    type="text"
-                                    value={newMessage}
-                                    onChange={(e) => setNewMessage(e.target.value)}
-                                    placeholder={imageFile ? "Add a caption..." : "Type a message..."}
-                                    className="w-full bg-transparent text-white focus:outline-none placeholder-gray-500 min-h-[24px] max-h-32 py-1"
+                                    type="file"
+                                    ref={fileInputRef}
+                                    className="hidden"
+                                    accept="image/*"
+                                    onChange={handleFileChange}
                                 />
                                 <button
-                                    type="submit"
-                                    disabled={(!newMessage.trim() && !imageFile) || uploading}
-                                    className="text-gray-400 hover:text-yellow-400 transition disabled:opacity-30 disabled:hover:text-gray-400"
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className={`p-2 rounded-full transition ${imageFile ? 'text-yellow-400 bg-yellow-400/10' : 'text-gray-400 hover:bg-neutral-800'}`}
                                 >
-                                    {uploading ? (
-                                        <div className="w-5 h-5 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
-                                    ) : (
-                                        <Send size={20} className={(newMessage.trim() || imageFile) ? "text-yellow-400" : ""} />
-                                    )}
+                                    <Paperclip size={22} />
                                 </button>
-                            </form>
+                                <form onSubmit={handleSendMessage} className="flex-1 flex items-center gap-3 bg-neutral-800 rounded-xl px-4 py-2 border border-white/5 focus-within:border-yellow-400/50 transition-colors">
+                                    <input
+                                        type="text"
+                                        value={newMessage}
+                                        onChange={(e) => setNewMessage(e.target.value)}
+                                        placeholder={imageFile ? "Add a caption..." : "Type a message..."}
+                                        className="w-full bg-transparent text-white focus:outline-none placeholder-gray-500 min-h-[24px] max-h-32 py-1"
+                                    />
+                                    <button
+                                        type="submit"
+                                        disabled={(!newMessage.trim() && !imageFile) || uploading}
+                                        className="text-gray-400 hover:text-yellow-400 transition disabled:opacity-30 disabled:hover:text-gray-400"
+                                    >
+                                        {uploading ? (
+                                            <div className="w-5 h-5 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
+                                        ) : (
+                                            <Send size={20} className={(newMessage.trim() || imageFile) ? "text-yellow-400" : ""} />
+                                        )}
+                                    </button>
+                                </form>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             ) : (
                 <div className="hidden md:flex flex-1 items-center justify-center bg-black flex-col text-center p-10 select-none">

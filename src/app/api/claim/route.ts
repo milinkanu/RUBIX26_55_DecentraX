@@ -3,6 +3,7 @@ import connectDB from "@/lib/db";
 import Claim from "@/models/Claim";
 import Item from "@/models/Item";
 import Notification from "@/models/Notification";
+import User from "@/models/User";
 import { calculateVerificationScore } from "@/lib/verificationService";
 
 export async function POST(req: NextRequest) {
@@ -74,7 +75,22 @@ export async function POST(req: NextRequest) {
 
         await newClaim.save();
 
-
+        // Create Notification for the Poster (Item Owner/Finder)
+        try {
+            const recipientUser = await User.findOne({ email: item.email });
+            if (recipientUser) {
+                await Notification.create({
+                    userId: recipientUser._id,
+                    title: notificationTitle,
+                    message: notificationMessage,
+                    relatedItem: itemId,
+                    type: "CLAIM",
+                });
+            }
+        } catch (notifError) {
+            console.error("Error creating notification:", notifError);
+            // Don't fail the request if notification fails, just log it
+        }
 
         return NextResponse.json(newClaim, { status: 201 });
     } catch (error: any) {
