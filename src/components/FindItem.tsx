@@ -225,21 +225,20 @@ export function FindItem() {
                         toast.success("Claim approved!");
                     }
                 } catch (err: any) {
-                    console.error("Polling error:", err);
                     // If claim is not found (404), stop polling and reset claim state
                     if (err.response && err.response.status === 404) {
+                        console.warn(`Claim ${claim.claimId} not found, stopping polling.`);
                         clearInterval(pollingRefs.current[itemId]);
                         delete pollingRefs.current[itemId];
-                        
+
                         setClaims((prev) => {
                             const newClaims = { ...prev };
                             delete newClaims[itemId];
                             return newClaims;
                         });
-                        
-                        // Optional: notify user
-                        // toast.error("Claim request not found or removed.");
+                        return;
                     }
+                    console.error("Polling error:", err);
                 }
             }, 5000);
         });

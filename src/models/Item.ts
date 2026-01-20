@@ -17,7 +17,7 @@ export interface IItem extends Document {
     keywords?: string[];
     file: string;
     questions?: { question: string; answer: string }[];
-    status: "pending" | "approved" | "rejected";
+    status: "pending" | "approved" | "rejected" | "resolved";
     reportedCount: number;
     createdAt: Date;
 }
@@ -49,7 +49,7 @@ const itemSchema: Schema<IItem> = new Schema(
         }],
         status: {
             type: String,
-            enum: ["pending", "approved", "rejected"],
+            enum: ["pending", "approved", "rejected", "resolved"],
             default: "approved", // Moderation enabled by default
         },
         reportedCount: {

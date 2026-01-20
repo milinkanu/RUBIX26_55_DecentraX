@@ -9,7 +9,9 @@ export interface IClaim extends Document {
     answers: { question: string; answer: string; isCorrect: boolean }[];
     confidenceScore: number;
     proofImage?: string;
-    status: "pending" | "approved" | "rejected";
+    status: "pending" | "approved" | "rejected" | "solved";
+    isBlocked: boolean;
+    blockedBy?: string;
 }
 
 const claimSchema: Schema<IClaim> = new Schema({
@@ -31,10 +33,12 @@ const claimSchema: Schema<IClaim> = new Schema({
     proofImage: String,
     status: {
         type: String,
-        enum: ["pending", "approved", "rejected"],
+        enum: ["pending", "approved", "rejected", "solved"],
         default: "pending",
     },
-});
+    isBlocked: { type: Boolean, default: false },
+    blockedBy: { type: String }, // Email of the user who blocked
+}, { timestamps: true });
 
 const Claim: Model<IClaim> = mongoose.models.Claim || mongoose.model<IClaim>("Claim", claimSchema);
 

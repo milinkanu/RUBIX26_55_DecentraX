@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
 
         const searchParams = req.nextUrl.searchParams;
         const email = searchParams.get("email");
+        const filter = searchParams.get("filter"); // 'unread' (default) or 'all'
 
         if (!email) {
             return NextResponse.json({ success: false, message: "Email required" }, { status: 400 });
@@ -17,14 +18,20 @@ export async function GET(req: NextRequest) {
 
         const user = await User.findOne({ email });
         if (!user) {
-            // User not found? Maybe return empty
             return NextResponse.json([]);
         }
 
-        // Fetch unread notifications
-        const notifications = await Notification.find({ userId: user._id, isRead: false })
+        // Build query
+        const query: any = { userId: user._id };
+        if (filter !== 'all') {
+            query.isRead = false;
+        }
+
+        // Fetch notifications
+        const notifications = await Notification.find(query)
             .populate("relatedItem") // Populate item details
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .limit(filter === 'all' ? 50 : 0); // Limit history to 50
 
         // Filter out notifications where the related item has been deleted
         const validNotifications = notifications.filter(n => {
