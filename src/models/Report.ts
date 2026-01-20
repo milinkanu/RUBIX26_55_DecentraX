@@ -4,6 +4,8 @@ export interface IReport extends Document {
     itemId: mongoose.Types.ObjectId;
     reportedBy: mongoose.Types.ObjectId;
     reason: string;
+    description?: string;
+    evidenceImage?: string;
     createdAt: Date;
 }
 
@@ -22,6 +24,12 @@ const ReportSchema: Schema<IReport> = new Schema(
         reason: {
             type: String,
             required: true,
+        },
+        description: {
+            type: String,
+        },
+        evidenceImage: {
+            type: String, // URL from Cloudinary
         },
     },
     { timestamps: true }
