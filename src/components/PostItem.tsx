@@ -89,7 +89,6 @@ export function PostItem() {
 
         if (
             !user?.email ||
-            !formData.phone ||
             !formData.title ||
             !formData.description ||
             (formData.type === "Found" && (!formData.questions || formData.questions.length === 0)) ||
@@ -264,17 +263,7 @@ export function PostItem() {
                             />
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-2">Contact Phone *</label>
-                            <input
-                                type="tel"
-                                name="phone"
-                                placeholder="Your contact number"
-                                value={formData.phone}
-                                onChange={handleChange}
-                                className="w-full p-3 bg-black/50 border border-gray-800 rounded-xl text-white focus:border-yellow-400 transition-all"
-                            />
-                        </div>
+
 
                         <div>
                             <label className="block text-sm font-medium text-gray-400 mb-2">Title *</label>
