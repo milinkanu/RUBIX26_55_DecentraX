@@ -129,7 +129,7 @@ export default function AdminDashboard() {
                 <div className="w-64 min-h-screen bg-neutral-900 border-r border-white/10 hidden md:block pt-6">
                     <div className="px-6 mb-8">
                         <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                            <AlertTriangle className="text-yellow-400" /> Admin
+                            Admin
                         </h2>
                     </div>
                     <nav className="space-y-2 px-3">
