@@ -66,9 +66,9 @@ export async function GET(req: NextRequest) {
         }
 
         // Default to approved items only for public feed (unless viewing own profile via email)
-        if (!email) {
-            query.status = "approved";
-        }
+        // if (!email) {
+        //     query.status = "approved";
+        // }
 
         console.log("Query built:", query);
         const items = await Item.find(query).select("+email").sort({ createdAt: -1 });
