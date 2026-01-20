@@ -254,6 +254,8 @@ export function FindItem() {
         }
     };
 
+
+
     useEffect(() => {
         Object.entries(claims).forEach(([itemId, claim]) => {
             if (!claim.claimId || claim.approved || pollingRefs.current[itemId]) return;
@@ -502,6 +504,14 @@ export function FindItem() {
                                     <X />
                                 </button>
 
+                                <button
+                                    onClick={() => setIsReporting(true)}
+                                    className="absolute top-4 left-4 text-white/50 hover:text-red-500 transition"
+                                    title="Report this item"
+                                >
+                                    <h1 className="text-xl">🚩</h1>
+                                </button>
+
                                 {isReporting ? (
                                     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
                                         <div className="flex items-center gap-2 text-red-400 mb-4">
@@ -742,6 +752,8 @@ export function FindItem() {
                             </div>
                         </div>
                     )}
+
+
                 </div>
 
                 <ToastContainer />

@@ -50,7 +50,7 @@ const itemSchema: Schema<IItem> = new Schema(
         status: {
             type: String,
             enum: ["pending", "approved", "rejected", "resolved"],
-            default: "approved", // Moderation enabled by default
+            default: "approved", // Auto-approve items by default
         },
         reportedCount: {
             type: Number,

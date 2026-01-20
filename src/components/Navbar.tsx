@@ -9,6 +9,7 @@ import axios from "axios";
 interface User {
   name?: string;
   email: string;
+  role?: string;
 }
 
 interface Claim {
@@ -524,6 +525,15 @@ function NavbarContent() {
                   {user.name || user.email}
                 </span>
               </span>
+
+              {user.role === 'admin' && (
+                <Link
+                  href="/admin"
+                  className="hidden lg:inline-flex bg-red-600 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-red-700 transition-colors gap-1 items-center"
+                >
+                  🛡️ Admin
+                </Link>
+              )}
 
               <button
                 onClick={handleLogout}

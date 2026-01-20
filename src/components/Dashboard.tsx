@@ -153,7 +153,7 @@ export function Dashboard() {
 
                     <Link href="/post" className="bg-yellow-400 text-black px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-yellow-300 transition-all hover:scale-105">
                         <Package className="w-5 h-5" />
-                        Report New Item
+                        List New Item
                     </Link>
                 </div>
 
@@ -180,7 +180,7 @@ export function Dashboard() {
                     <div className="bg-gray-900/40 backdrop-blur-md border border-gray-800 p-6 rounded-2xl">
                         <div className="flex justify-between items-start mb-4">
                             <History className="text-blue-400 w-8 h-8" />
-                            <span className="text-gray-500 text-xs font-bold uppercase tracking-widest">My Reports</span>
+                            <span className="text-gray-500 text-xs font-bold uppercase tracking-widest">My Listed Items</span>
                         </div>
                         <div className="text-4xl font-bold">{stats.totalPosts}</div>
                         <div className="text-gray-400 text-sm mt-1">Items you posted</div>
@@ -267,7 +267,7 @@ export function Dashboard() {
                         <div className="flex items-center justify-between">
                             <h2 className="text-2xl font-bold flex items-center gap-3">
                                 <History className="text-blue-400 w-6 h-6" />
-                                📝 My Reported Items
+                                📝 My Listed Items
                             </h2>
                         </div>
 
@@ -276,7 +276,7 @@ export function Dashboard() {
                                 <Package className="w-12 h-12 text-gray-700 mx-auto mb-4" />
                                 <h3 className="text-xl font-semibold text-gray-400">No items reported</h3>
                                 <p className="text-gray-500 mt-2 max-w-sm mx-auto text-sm">
-                                    You haven't posted any lost or found items yet. Click "Report New Item" to get started.
+                                    You haven't posted any lost or found items yet. Click "List New Item" to get started.
                                 </p>
                             </div>
                         ) : (

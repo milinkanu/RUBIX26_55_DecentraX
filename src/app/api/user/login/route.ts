@@ -6,16 +6,21 @@ import bcrypt from "bcrypt";
 export async function POST(req: NextRequest) {
     await connectDB();
     try {
-        const { email, password } = await req.json();
+        const body = await req.json();
+        const { email, password } = body;
+
+        if (!email || !password) {
+            return NextResponse.json({ message: "Email and password are required" }, { status: 400 });
+        }
 
         const user = await User.findOne({ email });
         if (!user) {
-            return NextResponse.json({ message: "User not found" }, { status: 400 });
+            return NextResponse.json({ message: "Invalid email or password" }, { status: 401 });
         }
 
         const validPassword = await bcrypt.compare(password, user.password as string);
         if (!validPassword) {
-            return NextResponse.json({ message: "Invalid credentials" }, { status: 400 });
+            return NextResponse.json({ message: "Invalid email or password" }, { status: 401 });
         }
 
         // In a real app, generate JWT here. For now, returning user object as per legacy.
