@@ -57,6 +57,8 @@ export function FindItem() {
     const [answer, setAnswer] = useState("");
     const [answers, setAnswers] = useState<{ question: string, answer: string }[]>([]);
     const [claims, setClaims] = useState<{ [key: string]: Claim }>({});
+    const [showReportModal, setShowReportModal] = useState(false);
+    const [reportReason, setReportReason] = useState("");
     const pollingRefs = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
     const categories = ["Mobile", "Wallet", "Documents", "Bag", "Keys", "Electronics", "Other"];
@@ -191,6 +193,30 @@ export function FindItem() {
         } catch (err: any) {
             console.error(err);
             toast.error(err.response?.data?.message || "Failed to submit claim");
+        }
+    };
+
+    const handleReportSubmit = async () => {
+        if (!selectedItem || !reportReason.trim()) return;
+        try {
+            const storedUser = localStorage.getItem("user");
+            const user = storedUser ? JSON.parse(storedUser) : null;
+            if (!user) {
+                toast.error("Please login to report items");
+                return;
+            }
+
+            await axios.post(`${API_URL}/api/reports`, {
+                itemId: selectedItem._id,
+                reportedByEmail: user.email,
+                reason: reportReason
+            });
+
+            toast.success("Report submitted successfully");
+            setShowReportModal(false);
+            setReportReason("");
+        } catch (err: any) {
+            toast.error("Failed to submit report");
         }
     };
 
@@ -439,6 +465,14 @@ export function FindItem() {
                                     <X />
                                 </button>
 
+                                <button
+                                    onClick={() => setShowReportModal(true)}
+                                    className="absolute top-4 left-4 text-white/50 hover:text-red-500 transition"
+                                    title="Report this item"
+                                >
+                                    <h1 className="text-xl">🚩</h1>
+                                </button>
+
                                 <img
                                     src={selectedItem.file || "/placeholder.png"}
                                     alt={selectedItem.title}
@@ -580,6 +614,39 @@ export function FindItem() {
                                         </p>
                                     </div>
                                 )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Report Modal */}
+                    {showReportModal && (
+                        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                            <div className="bg-neutral-900 border border-white/10 p-6 rounded-xl w-full max-w-sm relative">
+                                <button
+                                    onClick={() => setShowReportModal(false)}
+                                    className="absolute top-4 right-4 text-gray-500 hover:text-white"
+                                >
+                                    <X size={20} />
+                                </button>
+                                <h3 className="text-red-500 font-bold text-lg mb-4 flex items-center gap-2">
+                                    🚩 Report Item
+                                </h3>
+                                <p className="text-gray-400 text-sm mb-4">
+                                    Please tell us why you are reporting this item.
+                                </p>
+                                <textarea
+                                    className="w-full bg-black border border-white/10 rounded-lg p-3 text-white focus:border-red-500 focus:outline-none mb-4 min-h-[100px]"
+                                    placeholder="e.g. Broken link, spam, fake item..."
+                                    value={reportReason}
+                                    onChange={(e) => setReportReason(e.target.value)}
+                                ></textarea>
+                                <button
+                                    onClick={handleReportSubmit}
+                                    disabled={!reportReason.trim()}
+                                    className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Submit Report
+                                </button>
                             </div>
                         </div>
                     )}
