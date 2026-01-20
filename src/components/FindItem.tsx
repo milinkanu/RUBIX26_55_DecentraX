@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Search, X, User, Phone, Mail, Paperclip, Filter } from "lucide-react";
+import { Search, X, User, Phone, Mail, Paperclip, Filter, Flag } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
 import { Navbar } from "./Navbar";
@@ -57,11 +57,69 @@ export function FindItem() {
     const [answer, setAnswer] = useState("");
     const [answers, setAnswers] = useState<{ question: string, answer: string }[]>([]);
     const [claims, setClaims] = useState<{ [key: string]: Claim }>({});
-    const [showReportModal, setShowReportModal] = useState(false);
+
+    // Report State
+    const [isReporting, setIsReporting] = useState(false);
     const [reportReason, setReportReason] = useState("");
+    const [reportDescription, setReportDescription] = useState("");
+    const [reportImage, setReportImage] = useState("");
+
     const pollingRefs = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
     const categories = ["Mobile", "Wallet", "Documents", "Bag", "Keys", "Electronics", "Other"];
+
+    const handleReportSubmit = async () => {
+        if (!selectedItem || !reportReason) return;
+
+        try {
+            const storedUser = localStorage.getItem("user");
+            const user = storedUser ? JSON.parse(storedUser) : null;
+
+            if (!user) {
+                toast.error("You must be logged in to report an item");
+                return;
+            }
+
+            let evidenceImageUrl = "";
+            if (reportImage) {
+                const formData = new FormData();
+                formData.append("file", reportImage);
+                formData.append("upload_preset", "First_time_using_cloudinary");
+
+                try {
+                    // Using the cloud name 'dscllest7' which is known to work in PostItem.tsx
+                    const uploadRes = await axios.post(
+                        `https://api.cloudinary.com/v1_1/dscllest7/image/upload`,
+                        formData
+                    );
+                    evidenceImageUrl = uploadRes.data.secure_url;
+                } catch (uploadErr) {
+                    console.error("Image upload failed:", uploadErr);
+                    toast.error("Failed to upload evidence image");
+                    return;
+                }
+            }
+
+            await axios.post(`${API_URL}/api/reports`, {
+                itemId: selectedItem._id,
+                reportedByEmail: user.email,
+                reason: reportReason,
+                description: reportDescription,
+                evidenceImage: evidenceImageUrl
+            });
+
+            toast.success("Report submitted. Thank you for helping us!");
+            setIsReporting(false);
+            setReportReason("");
+            setReportDescription("");
+            setReportImage("");
+        } catch (err: any) {
+            console.error("Report error:", err);
+            toast.error(err.response?.data?.message || "Failed to submit report");
+        }
+    };
+
+
 
     const fetchItems = async () => {
         setLoading(true);
@@ -196,29 +254,7 @@ export function FindItem() {
         }
     };
 
-    const handleReportSubmit = async () => {
-        if (!selectedItem || !reportReason.trim()) return;
-        try {
-            const storedUser = localStorage.getItem("user");
-            const user = storedUser ? JSON.parse(storedUser) : null;
-            if (!user) {
-                toast.error("Please login to report items");
-                return;
-            }
 
-            await axios.post(`${API_URL}/api/reports`, {
-                itemId: selectedItem._id,
-                reportedByEmail: user.email,
-                reason: reportReason
-            });
-
-            toast.success("Report submitted successfully");
-            setShowReportModal(false);
-            setReportReason("");
-        } catch (err: any) {
-            toast.error("Failed to submit report");
-        }
-    };
 
     useEffect(() => {
         Object.entries(claims).forEach(([itemId, claim]) => {
@@ -286,6 +322,7 @@ export function FindItem() {
                     <div className="flex flex-col md:flex-row justify-center items-center gap-4 mb-8 relative">
                         <button
                             onClick={() => setShowFilter(!showFilter)}
+                            suppressHydrationWarning
                             className="flex items-center gap-2 px-4 py-2 bg-yellow-400 text-black font-bold rounded-lg hover:bg-yellow-500 transition-colors shadow-lg shadow-yellow-400/20 absolute left-8 top-2"
                         >
                             <Filter className="w-4 h-4" />
@@ -459,6 +496,8 @@ export function FindItem() {
                                     onClick={() => {
                                         setSelectedItem(null);
                                         setShowClaimForm(false);
+                                        setIsReporting(false);
+                                        setReportReason("");
                                     }}
                                     className="absolute top-4 right-4 text-white/70 hover:text-white"
                                 >
@@ -466,190 +505,255 @@ export function FindItem() {
                                 </button>
 
                                 <button
-                                    onClick={() => setShowReportModal(true)}
+                                    onClick={() => setIsReporting(true)}
                                     className="absolute top-4 left-4 text-white/50 hover:text-red-500 transition"
                                     title="Report this item"
                                 >
                                     <h1 className="text-xl">🚩</h1>
                                 </button>
 
-                                <img
-                                    src={selectedItem.file || "/placeholder.png"}
-                                    alt={selectedItem.title}
-                                    className="w-full max-h-80 object-contain rounded-lg"
-                                />
+                                {isReporting ? (
+                                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                        <div className="flex items-center gap-2 text-red-400 mb-4">
+                                            <Flag className="w-6 h-6" />
+                                            <h2 className="text-2xl font-bold">Report Item</h2>
+                                        </div>
+                                        <p className="text-gray-300 text-sm">
+                                            Please verify why you are reporting this item. This will be reviewed by our moderation team.
+                                        </p>
 
-                                <h2 className="text-2xl font-bold mt-3">
-                                    {selectedItem.title}
-                                </h2>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-400 mb-2">Reason for reporting</label>
+                                            <select
+                                                value={reportReason}
+                                                onChange={(e) => setReportReason(e.target.value)}
+                                                className="w-full p-3 bg-black/50 border border-gray-700 rounded-xl text-white focus:border-red-400 focus:outline-none transition-all"
+                                            >
+                                                <option value="">Select a reason</option>
+                                                <option value="Inappropriate Content">Inappropriate Content</option>
+                                                <option value="Spam / Scam">Spam / Scam</option>
+                                                <option value="Fake Item">Fake Item</option>
+                                                <option value="Wrong Category">Wrong Category</option>
+                                                <option value="Other">Other</option>
+                                            </select>
+                                        </div>
 
-                                <div className="flex gap-2">
-                                    <span className={`text-base font-bold ${selectedItem.type === 'Lost' ? 'text-red-500' : 'text-green-500'}`}>
-                                        {selectedItem.type || "Found"} Item
-                                    </span>
-                                </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-400 mb-2">Description (Optional)</label>
+                                            <textarea
+                                                className="w-full p-3 bg-black/50 border border-gray-700 rounded-xl text-white focus:border-red-400 focus:outline-none transition-all"
+                                                placeholder="Please provide more details..."
+                                                rows={3}
+                                                value={reportDescription}
+                                                onChange={(e) => setReportDescription(e.target.value)}
+                                            ></textarea>
+                                        </div>
 
-                                <p className="mt-2 text-gray-300 flex items-center gap-2">
-                                    <User className="w-4 h-4 text-yellow-400" />
-                                    Finder: {selectedItem.name || "Unknown"}
-                                </p>
-
-                                <p className="mt-3 text-gray-200 flex items-start gap-2">
-                                    <Paperclip className="w-4 h-4 mt-1 text-yellow-400" />
-                                    {selectedItem.description}
-                                </p>
-
-                                <div className="mt-2 flex flex-wrap gap-2 text-sm text-gray-400">
-                                    {selectedItem.category && <span>🏷️ {selectedItem.category}</span>}
-                                    {selectedItem.location?.city && <span>🏙️ {selectedItem.location.city}</span>}
-                                    {selectedItem.location?.area && <span>📍 {selectedItem.location.area}</span>}
-                                </div>
-
-                                {/* Actions */}
-                                {(() => {
-                                    const storedUser = localStorage.getItem("user");
-                                    const user = storedUser ? JSON.parse(storedUser) : null;
-                                    const isOwner = user?.email === selectedItem.email;
-
-                                    if (isOwner) {
-                                        return (
-                                            <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded text-center">
-                                                <p className="text-blue-400 font-semibold">
-                                                    You uploaded this {selectedItem.type?.toLowerCase() || "found"} item
-                                                </p>
-                                            </div>
-                                        );
-                                    }
-
-                                    return (
-                                        <>
-                                            {!claim?.submitted && (
-                                                <button
-                                                    onClick={() => setShowClaimForm(true)}
-                                                    className="w-full mt-4 bg-yellow-400 text-black py-2 rounded font-semibold hover:bg-yellow-500 transition"
-                                                >
-                                                    {selectedItem.type === 'Found' ? "This is my item" : "I found this item"}
-                                                </button>
-                                            )}
-
-                                            {showClaimForm && !claim?.submitted && (
-                                                <div className="mt-4 space-y-4 bg-white/5 p-4 rounded-lg">
-                                                    {selectedItem.type === 'Found' ? (
-                                                        <>
-                                                            <p className="text-gray-300 text-sm font-semibold border-b border-gray-700 pb-2">
-                                                                Answer verification questions to prove ownership:
-                                                            </p>
-
-                                                            {/* Legacy support: If old 'verify' field exists but no 'questions', show that */}
-                                                            {(!selectedItem.questions || selectedItem.questions.length === 0) && selectedItem.verify && (
-                                                                <div>
-                                                                    <p className="text-gray-400 text-xs mb-1">{selectedItem.verify}</p>
-                                                                    <input
-                                                                        value={answer}
-                                                                        onChange={(e) => setAnswer(e.target.value)}
-                                                                        className="w-full p-2 bg-gray-900 border border-gray-700 rounded text-white focus:border-yellow-400 focus:outline-none"
-                                                                        placeholder="Your answer..."
-                                                                    />
-                                                                </div>
-                                                            )}
-
-                                                            {/* New Multi-Question Support */}
-                                                            {selectedItem.questions?.map((q: any, idx: number) => (
-                                                                <div key={idx}>
-                                                                    <p className="text-gray-400 text-xs mb-1">
-                                                                        Q{idx + 1}: {q.question}
-                                                                    </p>
-                                                                    <input
-                                                                        onChange={(e) => {
-                                                                            const currentAnswers = [...(answers || [])];
-                                                                            // Ensure we have an entry for this index
-                                                                            const existingIndex = currentAnswers.findIndex(a => a.question === q.question);
-                                                                            if (existingIndex >= 0) {
-                                                                                currentAnswers[existingIndex].answer = e.target.value;
-                                                                            } else {
-                                                                                currentAnswers.push({ question: q.question, answer: e.target.value });
-                                                                            }
-                                                                            setAnswers(currentAnswers);
-                                                                        }}
-                                                                        className="w-full p-2 bg-gray-900 border border-gray-700 rounded text-white focus:border-yellow-400 focus:outline-none text-sm"
-                                                                        placeholder="Your answer..."
-                                                                    />
-                                                                </div>
-                                                            ))}
-                                                        </>
-                                                    ) : (
-                                                        <p className="text-gray-300 text-sm">
-                                                            Notify the owner that you found their item. They will be able to chat with you.
-                                                        </p>
-                                                    )}
-
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-400 mb-2">Evidence Image (Optional)</label>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) {
+                                                        const reader = new FileReader();
+                                                        reader.onloadend = () => {
+                                                            setReportImage(reader.result as string);
+                                                        };
+                                                        reader.readAsDataURL(file);
+                                                    }
+                                                }}
+                                                className="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-400 file:text-black hover:file:bg-yellow-500"
+                                            />
+                                            {reportImage && (
+                                                <div className="mt-2 relative w-full h-32 rounded-lg overflow-hidden border border-gray-700">
+                                                    <img src={reportImage} alt="Evidence Preview" className="w-full h-full object-cover" />
                                                     <button
-                                                        onClick={handleSubmitAnswer}
-                                                        className="w-full bg-yellow-400 text-black py-2 rounded font-semibold hover:bg-yellow-500 transition"
+                                                        onClick={() => setReportImage("")}
+                                                        className="absolute top-1 right-1 bg-black/50 text-white p-1 rounded-full hover:bg-black/80"
                                                     >
-                                                        {selectedItem.type === 'Found' ? "Submit Proof" : "Notify Owner"}
+                                                        <X size={14} />
                                                     </button>
                                                 </div>
                                             )}
-                                        </>
-                                    );
-                                })()}
+                                        </div>
 
-                                {claim?.submitted && !claim?.approved && (
-                                    <div className="mt-4 p-3 bg-yellow-400/10 border border-yellow-400/20 rounded text-center">
-                                        <p className="text-yellow-400 text-sm">
-                                            Request sent! Waiting for approval...
-                                        </p>
+                                        <div className="flex gap-3 pt-4">
+                                            <button
+                                                onClick={() => setIsReporting(false)}
+                                                className="flex-1 py-3 rounded-xl font-bold border border-gray-600 hover:bg-white/5 transition-colors"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                onClick={handleReportSubmit}
+                                                disabled={!reportReason}
+                                                className="flex-1 bg-red-500 text-white py-3 rounded-xl font-bold hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-red-500/20"
+                                            >
+                                                Submit Report
+                                            </button>
+                                        </div>
                                     </div>
-                                )}
+                                ) : (
+                                    <>
+                                        <img
+                                            src={selectedItem.file || "/placeholder.png"}
+                                            alt={selectedItem.title}
+                                            className="w-full max-h-80 object-contain rounded-lg"
+                                        />
 
-                                {claim?.approved && (
-                                    <div className="mt-4 p-4 bg-green-500/10 border border-green-500/20 rounded space-y-2">
-                                        <h3 className="text-green-400 font-semibold mb-2">Contact Details</h3>
-                                        <p className="flex items-center gap-2 text-gray-300">
-                                            <Phone className="w-4 h-4 text-green-400" /> {claim.phone}
+                                        <div className="flex justify-between items-start mt-4">
+                                            <h2 className="text-2xl font-bold">
+                                                {selectedItem.title}
+                                            </h2>
+                                            <button
+                                                onClick={() => setIsReporting(true)}
+                                                className="text-gray-500 hover:text-red-400 transition-colors p-1"
+                                                title="Report this item"
+                                            >
+                                                <Flag className="w-5 h-5" />
+                                            </button>
+                                        </div>
+
+                                        <div className="flex gap-2">
+                                            <span className={`text-base font-bold ${selectedItem.type === 'Lost' ? 'text-red-500' : 'text-green-500'}`}>
+                                                {selectedItem.type || "Found"} Item
+                                            </span>
+                                        </div>
+
+                                        <p className="mt-2 text-gray-300 flex items-center gap-2">
+                                            <User className="w-4 h-4 text-yellow-400" />
+                                            Finder: {selectedItem.name || "Unknown"}
                                         </p>
-                                        <p className="flex items-center gap-2 text-gray-300">
-                                            <Mail className="w-4 h-4 text-green-400" /> {claim.email}
+
+                                        <p className="mt-3 text-gray-200 flex items-start gap-2">
+                                            <Paperclip className="w-4 h-4 mt-1 text-yellow-400" />
+                                            {selectedItem.description}
                                         </p>
-                                    </div>
+
+                                        <div className="mt-2 flex flex-wrap gap-2 text-sm text-gray-400">
+                                            {selectedItem.category && <span>🏷️ {selectedItem.category}</span>}
+                                            {selectedItem.location?.city && <span>🏙️ {selectedItem.location.city}</span>}
+                                            {selectedItem.location?.area && <span>📍 {selectedItem.location.area}</span>}
+                                        </div>
+
+                                        {/* Actions */}
+                                        {(() => {
+                                            const storedUser = localStorage.getItem("user");
+                                            const user = storedUser ? JSON.parse(storedUser) : null;
+                                            const isOwner = user?.email === selectedItem.email;
+
+                                            if (isOwner) {
+                                                return (
+                                                    <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded text-center">
+                                                        <p className="text-blue-400 font-semibold">
+                                                            You uploaded this {selectedItem.type?.toLowerCase() || "found"} item
+                                                        </p>
+                                                    </div>
+                                                );
+                                            }
+
+                                            return (
+                                                <>
+                                                    {!claim?.submitted && (
+                                                        <button
+                                                            onClick={() => setShowClaimForm(true)}
+                                                            className="w-full mt-4 bg-yellow-400 text-black py-2 rounded font-semibold hover:bg-yellow-500 transition"
+                                                        >
+                                                            {selectedItem.type === 'Found' ? "This is my item" : "I found this item"}
+                                                        </button>
+                                                    )}
+
+                                                    {showClaimForm && !claim?.submitted && (
+                                                        <div className="mt-4 space-y-4 bg-white/5 p-4 rounded-lg">
+                                                            {selectedItem.type === 'Found' ? (
+                                                                <>
+                                                                    <p className="text-gray-300 text-sm font-semibold border-b border-gray-700 pb-2">
+                                                                        Answer verification questions to prove ownership:
+                                                                    </p>
+
+                                                                    {/* Legacy support: If old 'verify' field exists but no 'questions', show that */}
+                                                                    {(!selectedItem.questions || selectedItem.questions.length === 0) && selectedItem.verify && (
+                                                                        <div>
+                                                                            <p className="text-gray-400 text-xs mb-1">{selectedItem.verify}</p>
+                                                                            <input
+                                                                                value={answer}
+                                                                                onChange={(e) => setAnswer(e.target.value)}
+                                                                                className="w-full p-2 bg-gray-900 border border-gray-700 rounded text-white focus:border-yellow-400 focus:outline-none"
+                                                                                placeholder="Your answer..."
+                                                                            />
+                                                                        </div>
+                                                                    )}
+
+                                                                    {/* New Multi-Question Support */}
+                                                                    {selectedItem.questions?.map((q: any, idx: number) => (
+                                                                        <div key={idx}>
+                                                                            <p className="text-gray-400 text-xs mb-1">
+                                                                                Q{idx + 1}: {q.question}
+                                                                            </p>
+                                                                            <input
+                                                                                onChange={(e) => {
+                                                                                    const currentAnswers = [...(answers || [])];
+                                                                                    // Ensure we have an entry for this index
+                                                                                    const existingIndex = currentAnswers.findIndex(a => a.question === q.question);
+                                                                                    if (existingIndex >= 0) {
+                                                                                        currentAnswers[existingIndex].answer = e.target.value;
+                                                                                    } else {
+                                                                                        currentAnswers.push({ question: q.question, answer: e.target.value });
+                                                                                    }
+                                                                                    setAnswers(currentAnswers);
+                                                                                }}
+                                                                                className="w-full p-2 bg-gray-900 border border-gray-700 rounded text-white focus:border-yellow-400 focus:outline-none text-sm"
+                                                                                placeholder="Your answer..."
+                                                                            />
+                                                                        </div>
+                                                                    ))}
+                                                                </>
+                                                            ) : (
+                                                                <p className="text-gray-300 text-sm">
+                                                                    Notify the owner that you found their item. They will be able to chat with you.
+                                                                </p>
+                                                            )}
+
+                                                            <button
+                                                                onClick={handleSubmitAnswer}
+                                                                className="w-full bg-yellow-400 text-black py-2 rounded font-semibold hover:bg-yellow-500 transition"
+                                                            >
+                                                                {selectedItem.type === 'Found' ? "Submit Proof" : "Notify Owner"}
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
+
+                                        {claim?.submitted && !claim?.approved && (
+                                            <div className="mt-4 p-3 bg-yellow-400/10 border border-yellow-400/20 rounded text-center">
+                                                <p className="text-yellow-400 text-sm">
+                                                    Request sent! Waiting for approval...
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {claim?.approved && (
+                                            <div className="mt-4 p-4 bg-green-500/10 border border-green-500/20 rounded space-y-2">
+                                                <h3 className="text-green-400 font-semibold mb-2">Contact Details</h3>
+                                                <p className="flex items-center gap-2 text-gray-300">
+                                                    <Phone className="w-4 h-4 text-green-400" /> {claim.phone}
+                                                </p>
+                                                <p className="flex items-center gap-2 text-gray-300">
+                                                    <Mail className="w-4 h-4 text-green-400" /> {claim.email}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                             </div>
                         </div>
                     )}
 
-                    {/* Report Modal */}
-                    {showReportModal && (
-                        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-                            <div className="bg-neutral-900 border border-white/10 p-6 rounded-xl w-full max-w-sm relative">
-                                <button
-                                    onClick={() => setShowReportModal(false)}
-                                    className="absolute top-4 right-4 text-gray-500 hover:text-white"
-                                >
-                                    <X size={20} />
-                                </button>
-                                <h3 className="text-red-500 font-bold text-lg mb-4 flex items-center gap-2">
-                                    🚩 Report Item
-                                </h3>
-                                <p className="text-gray-400 text-sm mb-4">
-                                    Please tell us why you are reporting this item.
-                                </p>
-                                <textarea
-                                    className="w-full bg-black border border-white/10 rounded-lg p-3 text-white focus:border-red-500 focus:outline-none mb-4 min-h-[100px]"
-                                    placeholder="e.g. Broken link, spam, fake item..."
-                                    value={reportReason}
-                                    onChange={(e) => setReportReason(e.target.value)}
-                                ></textarea>
-                                <button
-                                    onClick={handleReportSubmit}
-                                    disabled={!reportReason.trim()}
-                                    className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Submit Report
-                                </button>
-                            </div>
-                        </div>
-                    )}
+
                 </div>
 
                 <ToastContainer />

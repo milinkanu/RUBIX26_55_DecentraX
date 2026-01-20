@@ -7,8 +7,7 @@ import User from "@/models/User";
 export async function POST(req: NextRequest) {
     await connectDB();
     try {
-        const body = await req.json();
-        const { itemId, reportedByEmail, reason } = body;
+        const { itemId, reportedByEmail, reason, description, evidenceImage } = await req.json();
 
         if (!itemId || !reportedByEmail || !reason) {
             return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
@@ -22,7 +21,9 @@ export async function POST(req: NextRequest) {
         const report = await Report.create({
             itemId,
             reportedBy: reporter._id,
-            reason
+            reason,
+            description,
+            evidenceImage
         });
 
         // Increment reported count on the item for sorting/flags

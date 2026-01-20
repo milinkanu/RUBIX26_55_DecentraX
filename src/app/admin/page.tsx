@@ -39,12 +39,14 @@ interface Report {
         email: string;
     };
     reason: string;
+    description?: string;
+    evidenceImage?: string;
     createdAt: string;
 }
 
 export default function AdminDashboard() {
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState<"pending" | "reports" | "all">("pending");
+    const [activeTab, setActiveTab] = useState<"reports" | "all">("all");
     const [items, setItems] = useState<AdminItem[]>([]);
     const [reports, setReports] = useState<Report[]>([]);
     const [loading, setLoading] = useState(true);
@@ -79,9 +81,11 @@ export default function AdminDashboard() {
 
             if (activeTab === "reports") {
                 const res = await axios.get("/api/admin/reports", config);
-                setReports(res.data);
+                // Filter out reports where the item has been deleted (itemId is null)
+                const activeReports = res.data.filter((report: Report) => report.itemId);
+                setReports(activeReports);
             } else {
-                const status = activeTab === "all" ? "all" : "pending";
+                const status = "all";
                 const res = await axios.get(`/api/admin/items?status=${status}`, config);
                 setItems(res.data);
             }
@@ -130,12 +134,6 @@ export default function AdminDashboard() {
                     </div>
                     <nav className="space-y-2 px-3">
                         <button
-                            onClick={() => setActiveTab("pending")}
-                            className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${activeTab === "pending" ? "bg-yellow-400 text-black font-bold" : "text-gray-400 hover:bg-white/5"}`}
-                        >
-                            <Filter size={18} /> Review Pending
-                        </button>
-                        <button
                             onClick={() => setActiveTab("reports")}
                             className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${activeTab === "reports" ? "bg-yellow-400 text-black font-bold" : "text-gray-400 hover:bg-white/5"}`}
                         >
@@ -153,7 +151,6 @@ export default function AdminDashboard() {
                 {/* Main Content */}
                 <div className="flex-1 p-8">
                     <h1 className="text-3xl font-bold mb-8">
-                        {activeTab === "pending" && "Pending Approvals"}
                         {activeTab === "reports" && "Flagged Reports"}
                         {activeTab === "all" && "All Items Database"}
                     </h1>
@@ -198,7 +195,7 @@ export default function AdminDashboard() {
                                     </div>
                                 </div>
                             )) : reports.map((report) => (
-                                <div key={report._id} className="bg-neutral-900 border border-red-500/30 rounded-xl p-4">
+                                <div key={report._id} className="bg-neutral-900 border border-red-500/30 rounded-xl p-4 overflow-hidden">
                                     <div className="flex justify-between items-start mb-4">
                                         <div>
                                             <h3 className="font-bold text-white">Item: {report.itemId?.title || "Deleted Item"}</h3>
@@ -206,15 +203,23 @@ export default function AdminDashboard() {
                                         </div>
                                         <span className="text-red-400 text-xs font-bold border border-red-500/30 px-2 py-1 rounded-full">{new Date(report.createdAt).toLocaleDateString()}</span>
                                     </div>
-                                    <div className="bg-red-500/5 border border-red-500/10 p-3 rounded-lg mb-4">
-                                        <p className="text-red-300 text-sm font-medium">"{report.reason}"</p>
+                                    <div className="bg-red-500/5 border border-red-500/10 p-3 rounded-lg mb-4 space-y-2">
+                                        <p className="text-red-300 text-sm font-bold">Type: {report.reason}</p>
+                                        {report.description && (
+                                            <p className="text-gray-300 text-sm italic">"{report.description}"</p>
+                                        )}
+                                        {report.evidenceImage && (
+                                            <div className="mt-2 rounded-lg overflow-hidden border border-white/10">
+                                                <img src={report.evidenceImage} alt="Evidence" className="w-full h-32 object-cover" />
+                                            </div>
+                                        )}
                                     </div>
                                     {report.itemId && (
                                         <div className="flex gap-2">
-                                            <button onClick={() => router.push(`/admin/items?id=${report.itemId._id}`)} className="flex-1 bg-neutral-800 hover:bg-neutral-700 py-2 rounded-lg text-sm text-gray-300">
+                                            <button onClick={() => router.push(`/find?itemId=${report.itemId._id}`)} className="flex-1 bg-neutral-800 hover:bg-neutral-700 py-2 rounded-lg text-sm text-gray-300 transition-colors">
                                                 View Item
                                             </button>
-                                            <button onClick={() => handleAction(report.itemId._id, "delete")} className="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg text-sm font-bold">
+                                            <button onClick={() => handleAction(report.itemId._id, "delete")} className="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg text-sm font-bold transition-colors">
                                                 Remove Post
                                             </button>
                                         </div>

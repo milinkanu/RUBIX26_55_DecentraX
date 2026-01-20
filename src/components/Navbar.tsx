@@ -291,6 +291,7 @@ function NavbarContent() {
               value={searchTerm}
               onChange={handleSearchChange}
               onKeyDown={handleKeyDown}
+              suppressHydrationWarning
               className="bg-transparent border border-yellow-400 rounded-full py-1.5 px-4 pl-10 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-yellow-400 w-48 lg:w-64 transition-all"
             />
             <Search className="h-4 w-4 text-yellow-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
