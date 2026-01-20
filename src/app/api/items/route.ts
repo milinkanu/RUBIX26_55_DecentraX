@@ -84,6 +84,13 @@ export async function POST(req: NextRequest) {
     await connectDB();
     try {
         const body = await req.json();
+
+        // Support Bulk Seeding (Array)
+        if (Array.isArray(body)) {
+            const createdItems = await Item.insertMany(body);
+            return NextResponse.json({ success: true, count: createdItems.length, items: createdItems }, { status: 201 });
+        }
+
         const newItem = new Item(body);
         await newItem.save();
 

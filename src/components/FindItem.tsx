@@ -740,9 +740,6 @@ export function FindItem() {
                                             <div className="mt-4 p-4 bg-green-500/10 border border-green-500/20 rounded space-y-2">
                                                 <h3 className="text-green-400 font-semibold mb-2">Contact Details</h3>
                                                 <p className="flex items-center gap-2 text-gray-300">
-                                                    <Phone className="w-4 h-4 text-green-400" /> {claim.phone}
-                                                </p>
-                                                <p className="flex items-center gap-2 text-gray-300">
                                                     <Mail className="w-4 h-4 text-green-400" /> {claim.email}
                                                 </p>
                                             </div>
