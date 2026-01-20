@@ -7,35 +7,30 @@ import User from "@/models/User";
 export async function POST(req: NextRequest) {
     await connectDB();
     try {
-        const { itemId, reportedByEmail, reason } = await req.json();
+        const body = await req.json();
+        const { itemId, reportedByEmail, reason } = body;
 
         if (!itemId || !reportedByEmail || !reason) {
             return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
         }
 
-        const user = await User.findOne({ email: reportedByEmail });
-        if (!user) {
-            return NextResponse.json({ message: "User not found" }, { status: 404 });
-        }
-
-        // Check if item exists
-        const item = await Item.findById(itemId);
-        if (!item) {
-            return NextResponse.json({ message: "Item not found" }, { status: 404 });
+        const reporter = await User.findOne({ email: reportedByEmail });
+        if (!reporter) {
+            return NextResponse.json({ message: "Invalid user" }, { status: 401 });
         }
 
         const report = await Report.create({
             itemId,
-            reportedBy: user._id,
+            reportedBy: reporter._id,
             reason
         });
 
-        // Increment reported count on item
-        item.reportedCount = (item.reportedCount || 0) + 1;
-        await item.save();
+        // Increment reported count on the item for sorting/flags
+        await Item.findByIdAndUpdate(itemId, { $inc: { reportedCount: 1 } });
 
-        return NextResponse.json({ message: "Report submitted successfully", report }, { status: 201 });
+        return NextResponse.json({ success: true, report });
+
     } catch (error: any) {
-        return NextResponse.json({ message: error.message }, { status: 500 });
+        return NextResponse.json({ message: "Error submitting report", error: error.message }, { status: 500 });
     }
 }
