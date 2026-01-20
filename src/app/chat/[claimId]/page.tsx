@@ -135,6 +135,7 @@ export default function ChatPage() {
     };
 
     const fetchChatList = async (email: string) => {
+        if (!email) return;
         try {
             const res = await axios.get(`/api/chat/list/${email}`);
             const sanitizedChats = res.data.map((chat: ChatListItem) => {
