@@ -11,7 +11,12 @@ import Link from "next/link";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
+import { useSession } from "next-auth/react";
+
+// ...
+
 export function PostItem() {
+    const { data: session } = useSession();
     const searchParams = useSearchParams();
     const router = useRouter();
     const editId = searchParams.get("edit");
@@ -84,8 +89,7 @@ export function PostItem() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        const storedUser = typeof window !== 'undefined' ? localStorage.getItem("user") : null;
-        const user = storedUser ? JSON.parse(storedUser) : null;
+        const user = session?.user;
 
         if (
             !user?.email ||

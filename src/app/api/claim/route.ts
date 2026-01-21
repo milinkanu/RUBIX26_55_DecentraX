@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
         const { itemId, claimantName, claimantEmail, answers, proofImage } = await req.json();
 
         // Check if item exists and get finder email
-        const item = await Item.findById(itemId).select("+email +phone questions title name");
+        const item = await Item.findById(itemId).select("+email +phone questions title name type");
         if (!item) {
             return NextResponse.json({ message: "Item not found" }, { status: 404 });
         }

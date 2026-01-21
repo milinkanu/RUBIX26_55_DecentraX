@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import axios from "axios";
+import { useSession, signOut } from "next-auth/react";
 
 interface User {
   name?: string;
@@ -56,7 +57,19 @@ function NavbarContent() {
   const sidebarRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [user, setUser] = useState<User | null>(null);
+
+  const { data: session, status } = useSession();
+  const user = session?.user ? { ...session.user, role: (session.user as any).role } : null;
+
+  // Sync session to localStorage for legacy compatibility
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem("user", JSON.stringify(user));
+    } else if (status === "unauthenticated") {
+      localStorage.removeItem("user");
+    }
+  }, [user, status]);
+
   const router = useRouter();
   const pathname = usePathname();
 
@@ -106,39 +119,22 @@ function NavbarContent() {
 
 
   useEffect(() => {
-    // Client-side only
-    if (typeof window !== "undefined") {
-      const storedUser = localStorage.getItem("user");
-      const parsedUser = storedUser ? JSON.parse(storedUser) : null;
-      setUser(parsedUser);
+    if (user?.email) {
+      fetchNotifications(user.email);
+      fetchMatchNotifications(user.email);
+      fetchChatList(user.email);
 
-      if (parsedUser) {
-        fetchNotifications(parsedUser.email);
-        fetchMatchNotifications(parsedUser.email);
-        fetchChatList(parsedUser.email);
+      const interval = setInterval(() => {
+        if (!document.hidden && activeTabRef.current === 'new') {
+          fetchNotifications(user.email!);
+          fetchMatchNotifications(user.email!, false);
+          fetchChatList(user.email!);
+        }
+      }, 5000);
 
-        const interval = setInterval(() => {
-          // Only auto-refresh if we are in 'new' mode or to check badge count.
-          // Ideally, we just fetch 'new' stuff for the badge count in background.
-          // But if 'history' is open, we might overwrite it. 
-          // For now, let's just fetch default (unread) to keep badge up to date 
-          // but ONLY if we are NOT viewing history actively in the dropdown?
-          // Actually, simplistic approach: always fetch unread for badge.
-          // BUT this state 'matchNotifications' drives the dropdown too.
-
-          // Fix: If activeTab is 'history', do not auto-refresh or refresh history?
-          // If we are in history, we don't want to overwrite with unread ones.
-          if (!document.hidden && activeTabRef.current === 'new') {
-            fetchNotifications(parsedUser.email);
-            fetchMatchNotifications(parsedUser.email, false);
-            fetchChatList(parsedUser.email);
-          }
-        }, 5000);
-
-        return () => clearInterval(interval);
-      }
+      return () => clearInterval(interval);
     }
-  }, [pathname]);
+  }, [user?.email, activeTabRef]);
 
   // Listen for chat read events to update badge immediately
   useEffect(() => {
@@ -218,8 +214,7 @@ function NavbarContent() {
 
   const handleLogout = () => {
     localStorage.removeItem("user");
-    setUser(null);
-    router.push("/login");
+    signOut({ callbackUrl: "/login" });
   };
 
   useEffect(() => {

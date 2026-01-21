@@ -51,8 +51,14 @@ interface User {
     createdAt: string;
 }
 
+import { useSession } from "next-auth/react";
+
+// ...
+
 export function Dashboard() {
-    const [user, setUser] = useState<User | null>(null);
+    const { data: session, status } = useSession();
+    const user = session?.user;
+
     const [matches, setMatches] = useState<Match[]>([]);
     const [userItems, setUserItems] = useState<Item[]>([]);
     const [loading, setLoading] = useState(true);
@@ -63,15 +69,12 @@ export function Dashboard() {
     });
 
     useEffect(() => {
-        const storedUser = localStorage.getItem("user");
-        if (storedUser) {
-            const parsedUser = JSON.parse(storedUser);
-            setUser(parsedUser);
-            fetchDashboardData(parsedUser.email);
-        } else {
+        if (session?.user?.email) {
+            fetchDashboardData(session.user.email);
+        } else if (status === "unauthenticated") {
             setLoading(false);
         }
-    }, []);
+    }, [session, status]);
 
     const fetchDashboardData = async (email: string) => {
         try {
