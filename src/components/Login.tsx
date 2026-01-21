@@ -7,6 +7,10 @@ import axios from "axios";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
+import { signIn } from "next-auth/react";
+
+// ...
+
 export function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -16,18 +20,22 @@ export function Login() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
+
         try {
-            const response = await axios.post(
-                `${API_URL}/api/user/login`,
-                { email, password }
-            );
-            localStorage.setItem("user", JSON.stringify(response.data.user));
-            router.push("/"); // or /
+            const result = await signIn("credentials", {
+                redirect: false,
+                email,
+                password,
+            });
+
+            if (result?.error) {
+                setError("Invalid email or password");
+            } else {
+                router.push("/");
+                router.refresh(); // Ensure session is picked up
+            }
         } catch (err: any) {
-            console.error(err);
-            setError(
-                err.response?.data?.message || "Login failed. Please try again."
-            );
+            setError("Login failed");
         }
     };
 
