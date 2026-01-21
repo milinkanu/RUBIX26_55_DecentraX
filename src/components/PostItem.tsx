@@ -9,8 +9,6 @@ import { Navbar } from "./Navbar";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
-
 import { useSession } from "next-auth/react";
 
 // ...
@@ -52,7 +50,6 @@ export function PostItem() {
         setLoading(true);
         try {
             const url = `/api/items/${editId}`;
-            console.log("Fetching item for edit:", url);
             const res = await axios.get(url);
             const item = res.data;
             setFormData({
@@ -171,7 +168,7 @@ export function PostItem() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white">
+        <div className="min-h-screen bg-linear-to-b from-gray-900 to-black text-white">
             <Navbar />
             <ToastContainer position="top-center" autoClose={3000} />
 
