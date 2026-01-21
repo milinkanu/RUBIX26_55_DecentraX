@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, Suspense } from "react";
 import { AlertTriangle, Bell, Menu, X, MessageCircle, Search } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import axios from "axios";
 
@@ -19,7 +20,7 @@ interface Claim {
     title: string;
     type?: string;
   };
-  answer: string;
+  answers: { question: string; answer: string; isCorrect: boolean }[];
   status: string;
   finderEmail: string;
   finderName?: string;
@@ -258,7 +259,7 @@ function NavbarContent() {
           <div className="w-8 h-8 bg-yellow-400 rounded-lg flex items-center justify-center text-black font-bold">
             F!
           </div>
-          <span className="text-xl font-bold text-white">Found<span className="text-yellow-400">It!</span></span>
+          <span className="text-xl font-bold text-white">Found<span className="text-yellow-400">!t</span></span>
         </Link>
 
         <div className="hidden lg:flex gap-6">
@@ -454,10 +455,18 @@ function NavbarContent() {
                                       )}
 
                                       {claim.status === 'pending' && isFinder && !isLost && (
-                                        <p className="text-gray-300 text-xs">
-                                          <span className="text-gray-400">Answer:</span>{" "}
-                                          {claim.answer}
-                                        </p>
+                                        <div className="mt-2 space-y-1">
+                                          {claim.answers && claim.answers.length > 0 ? (
+                                            claim.answers.map((ans, i) => (
+                                              <p key={i} className="text-gray-300 text-[11px] bg-black/20 p-1.5 rounded border border-white/5">
+                                                <span className="text-gray-500 block font-bold">Q: {ans.question}</span>
+                                                <span className={`${ans.isCorrect ? 'text-green-400' : 'text-red-400'}`}>A: {ans.answer || "(No Answer)"}</span>
+                                              </p>
+                                            ))
+                                          ) : (
+                                            <p className="text-gray-500 text-[10px] italic">No verification answers provided.</p>
+                                          )}
+                                        </div>
                                       )}
                                     </div>
                                   </div>
